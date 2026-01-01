@@ -23,8 +23,14 @@
         <h1 class="text-3xl font-bold">Staff Score Dashboard</h1>
         <div class="text-sm text-slate-400 mt-1">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</div>
       </div>
-      <div class="flex gap-2 items-center">
+
+      <!-- top right controls -->
+      <div class="flex gap-2 items-center flex-wrap justify-end">
         <span id="userChip" class="chip hidden"></span>
+
+        <!-- ✅ Reset password chip (shows after first change) -->
+        <button id="resetChip" class="chip hidden">Reset Password</button>
+
         <button id="logoutBtn" class="chip hidden">Logout</button>
       </div>
     </div>
@@ -89,7 +95,7 @@
           </div>
         </div>
 
-        <!-- incidents + change password -->
+        <!-- incidents + forced change password -->
         <div class="grid md:grid-cols-2 gap-4 mt-6">
           <div class="glass p-4">
             <div class="flex items-center justify-between">
@@ -113,9 +119,10 @@
             <div id="myIncEmpty" class="text-sm text-emerald-300 mt-3 hidden">No incidents ✅</div>
           </div>
 
-          <div id="pwCard" class="glass p-4">
+          <!-- ✅ Only shows when needsPasswordChange === true -->
+          <div id="pwCard" class="glass p-4 hidden">
             <h3 class="font-semibold">Change Password</h3>
-            <div class="text-xs text-slate-500 mt-1">Set your own password after first login.</div>
+            <div class="text-xs text-slate-500 mt-1">First login with default password: you must change it.</div>
             <div class="mt-4 space-y-3">
               <input id="oldPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Old password" />
               <input id="newPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="New password (min 4 char)" />
@@ -123,6 +130,24 @@
               <div id="pwMsg" class="text-sm mt-2 hidden"></div>
             </div>
           </div>
+        </div>
+
+        <!-- ✅ Reset panel (small, toggled by chip) -->
+        <div id="resetPanel" class="glass p-4 mt-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold">Reset Password</h3>
+              <div class="text-xs text-slate-500 mt-1">If you forgot your current password, type <b>default password</b> as old password and set a new one.</div>
+            </div>
+            <button id="resetClose" class="chip">Close</button>
+          </div>
+
+          <div class="mt-4 grid md:grid-cols-3 gap-3">
+            <input id="resetOld" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Old password (use mcw@1234)" />
+            <input id="resetNew" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="New password (min 4 char)" />
+            <button id="resetBtn" class="btn rounded-xl py-2 font-semibold">Reset Now</button>
+          </div>
+          <div id="resetMsg" class="text-sm mt-3 hidden"></div>
         </div>
 
         <!-- ALL incidents table -->
@@ -186,7 +211,7 @@
 
 <script>
 /** ✅ Your correct Apps Script Web App URL */
-const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbz4aPQQgV8c4yvfPPVB9v_lvNY4ym4FJhqHAj9q_c5sw4uTRuArFj2V3Wr108ajA-4r/exec";
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbz42ZdT1lyjcKblOJvDb0epARhrazPjkLmonfs-QWsDac5Mv49n5g2fF9L2tG2Vg3o/exec";
 
 const S = {
   token: localStorage.getItem("ss_token") || "",
@@ -225,6 +250,7 @@ function showLogin(msg){
   $("loginSection").classList.remove("hidden");
   $("dashSection").classList.add("hidden");
   $("userChip").classList.add("hidden");
+  $("resetChip").classList.add("hidden");
   $("logoutBtn").classList.add("hidden");
   if (msg){
     $("loginErr").textContent = msg;
@@ -264,13 +290,12 @@ async function loadMonths(){
   const sel = $("monthSelect");
   sel.innerHTML = "";
 
-  // ✅ add extra options requested
   const extra = ["All","Weekly"];
   const full = extra.concat(months);
 
   const chosen = (S.month && full.includes(S.month))
     ? S.month
-    : (months.length ? months[months.length - 1] : "All"); // ✅ default latest month
+    : (months.length ? months[months.length - 1] : "All");
 
   S.month = chosen;
   localStorage.setItem("ss_month", chosen);
@@ -309,6 +334,18 @@ function escapeHtml(s){
     .replaceAll("'","&#039;");
 }
 
+function setPwUI(needsPasswordChange){
+  // if still default -> force show change password card
+  if (needsPasswordChange){
+    $("pwCard").classList.remove("hidden");
+    $("resetChip").classList.add("hidden");
+    $("resetPanel").classList.add("hidden");
+  } else {
+    $("pwCard").classList.add("hidden");
+    $("resetChip").classList.remove("hidden");
+  }
+}
+
 async function loadDashboard(){
   $("selMonthTxt").textContent = "Selected Month: " + S.month;
 
@@ -335,12 +372,14 @@ async function loadDashboard(){
     $("weeklyHint").textContent = `Avg of ${res.weeksCount} weeks`;
   }
 
-  // ✅ show warning ONLY for real month tabs (not All/Weekly)
   if ((S.month !== "All" && S.month !== "Weekly") && res.monthlyScore === null){
     setWarn("Your StaffID is not found in this month tab. Add your row in the month sheet to show monthly score.");
   } else {
     setWarn("");
   }
+
+  // ✅ password UI control
+  setPwUI(!!res.needsPasswordChange);
 
   // My incidents
   const myInc = res.myIncidents || [];
@@ -482,8 +521,12 @@ $("loginBtn").addEventListener("click", async ()=>{
 
     showDash();
     await loadMonths();
+
+    // load quickly (dashboard + incidents first)
     await loadDashboard();
     await loadAllIncidents();
+
+    // leaderboard after (still same screen, but faster now)
     await loadLeaderboard();
 
   } catch(err){
@@ -502,6 +545,7 @@ $("logoutBtn").addEventListener("click", ()=>{
 $("monthSelect").addEventListener("change", async ()=>{
   S.month = $("monthSelect").value;
   localStorage.setItem("ss_month", S.month);
+
   await loadDashboard();
   await loadAllIncidents();
   await loadLeaderboard();
@@ -513,6 +557,7 @@ $("refreshBtn").addEventListener("click", async ()=>{
   await loadLeaderboard();
 });
 
+// ✅ Change password (forced)
 $("pwBtn").addEventListener("click", async ()=>{
   const oldPassword = $("oldPass").value;
   const newPassword = $("newPass").value;
@@ -531,12 +576,56 @@ $("pwBtn").addEventListener("click", async ()=>{
     $("pwMsg").className = "text-sm mt-2 text-emerald-300";
     $("pwMsg").classList.remove("hidden");
 
+    // hide card, show reset chip
     $("pwCard").classList.add("hidden");
+    $("resetChip").classList.remove("hidden");
+
+    // refresh dashboard flags
+    await loadDashboard();
 
   } catch(err){
     $("pwMsg").textContent = err.message || String(err);
     $("pwMsg").className = "text-sm mt-2 text-red-300";
     $("pwMsg").classList.remove("hidden");
+  }
+});
+
+// ✅ Reset password chip / panel
+$("resetChip").addEventListener("click", ()=>{
+  $("resetPanel").classList.toggle("hidden");
+});
+
+$("resetClose").addEventListener("click", ()=>{
+  $("resetPanel").classList.add("hidden");
+});
+
+$("resetBtn").addEventListener("click", async ()=>{
+  const oldPassword = $("resetOld").value;
+  const newPassword = $("resetNew").value;
+
+  $("resetMsg").classList.add("hidden");
+
+  try{
+    const res = await jsonp({
+      action:"resetPassword",
+      token: S.token,
+      staffId: S.staffId,
+      oldPassword,
+      newPassword
+    });
+    if (!res.ok) throw new Error(res.error || "Reset failed");
+
+    $("resetMsg").textContent = "Password reset ✅";
+    $("resetMsg").className = "text-sm mt-3 text-emerald-300";
+    $("resetMsg").classList.remove("hidden");
+
+    $("resetOld").value = "";
+    $("resetNew").value = "";
+
+  } catch(err){
+    $("resetMsg").textContent = err.message || String(err);
+    $("resetMsg").className = "text-sm mt-3 text-red-300";
+    $("resetMsg").classList.remove("hidden");
   }
 });
 
@@ -556,9 +645,11 @@ $("exportMyBtn").addEventListener("click", exportMyReport);
   try{
     showDash();
     await loadMonths();
+
     await loadDashboard();
     await loadAllIncidents();
     await loadLeaderboard();
+
   } catch (e){
     showLogin("Session expired. Please login again.");
   }
