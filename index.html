@@ -16,7 +16,7 @@
         #070b18;
     }
 
-    /* Safety: ensure clicks work */
+    /* ✅ never block clicks */
     * { pointer-events: auto; }
 
     .card { background: rgba(15, 23, 42, .72); border: 1px solid rgba(148,163,184,.14); box-shadow: 0 10px 35px rgba(0,0,0,.35); }
@@ -26,11 +26,6 @@
     .btn-primary { background: rgba(99,102,241,.85); border-color: rgba(99,102,241,.35); cursor:pointer; }
     .btn-primary:hover { background: rgba(99,102,241,.95); }
     .inp { background: rgba(2,6,23,.55); border: 1px solid rgba(148,163,184,.18); }
-    .tableWrap { border: 1px solid rgba(148,163,184,.14); border-radius: 18px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .02em; color: rgb(203 213 225); background: rgba(2,6,23,.65); border-bottom: 1px solid rgba(148,163,184,.14); }
-    td { border-bottom: 1px solid rgba(148,163,184,.08); color: rgb(226 232 240); font-size: 13px; }
-    tr:hover td { background: rgba(2,6,23,.35); }
     .muted { color: rgb(148 163 184); }
     .danger { color: rgb(248 113 113); }
     .warn { color: rgb(251 191 36); }
@@ -44,7 +39,6 @@
       .gridCards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
     }
 
-    /* Ensure login is always above overlays */
     #loginCard { position: relative; z-index: 5000; }
     #btnLogin { position: relative; z-index: 6000; pointer-events: auto !important; cursor: pointer !important; }
   </style>
@@ -57,7 +51,6 @@
         <h1 class="text-3xl font-bold tracking-tight">Staff Score Dashboard</h1>
         <p class="muted mt-1 text-sm">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</p>
       </div>
-
       <div id="topRight" class="hidden items-center gap-2">
         <div class="chip rounded-full px-3 py-1 text-xs">
           <span id="whoami" class="muted"></span>
@@ -73,167 +66,42 @@
           <h2 class="text-lg font-semibold">Login</h2>
           <p class="muted text-sm mt-1">Use your StaffID + password.</p>
           <p class="muted text-xs mt-3">(Default password is NOT shown here. You will share it manually to staff.)</p>
-          <p class="muted text-xs mt-2">If login fails, ask admin to re-deploy / sync AUTH in Apps Script.</p>
+          <p class="muted text-xs mt-2">If login fails, ask admin to re-deploy Web App with access = <b>Anyone</b>.</p>
         </div>
 
         <div class="space-y-3">
           <div>
             <label class="muted text-xs">StaffID</label>
-            <input id="loginStaffId" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="e.g. S017" autocomplete="username"/>
+            <input id="loginStaffId" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="e.g. S016" />
           </div>
           <div>
             <label class="muted text-xs">Password</label>
-            <input id="loginPass" type="password" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="••••••••" autocomplete="current-password"/>
+            <input id="loginPass" type="password" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="••••••••" />
           </div>
 
           <button id="btnLogin" class="btn-primary w-full rounded-xl py-2 font-semibold" type="button">Login</button>
+
           <div id="loginErr" class="text-sm danger hidden"></div>
+
+          <!-- extra hint shown only when fetch blocked -->
+          <div id="deployHint" class="text-xs warn hidden">
+            ⚠️ API blocked. In Apps Script deployment set:
+            <b>Who has access = Anyone</b> (or Anyone with link), then Deploy again.
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD (kept minimal here; your API should return next data after login) -->
     <div id="dash" class="hidden">
       <div class="card rounded-2xl mt-8 p-5">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <h3 class="font-semibold">Your Live Scores</h3>
-            <div class="muted text-xs mt-1">Selected: <span id="selectedLabel" class="mono"></span></div>
-            <div id="hintBox" class="mt-2 text-xs warn hidden"></div>
+            <h3 class="font-semibold">Logged in ✅</h3>
+            <div class="muted text-xs mt-1">Now API is reachable. You can connect the remaining dashboard actions.</div>
           </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <select id="monthSelect" class="inp rounded-xl px-3 py-2 text-sm outline-none"></select>
-            <button id="btnRefresh" class="btn rounded-xl px-3 py-2 text-sm" type="button">Refresh</button>
-            <button id="btnExportMe" class="btn rounded-xl px-3 py-2 text-sm" type="button">Export My Report</button>
-            <button id="btnExportCSV" class="btn rounded-xl px-3 py-2 text-sm" type="button">Export CSV</button>
-          </div>
+          <button id="btnBackToLogin" class="btn rounded-xl px-3 py-2 text-sm" type="button">Back</button>
         </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 gridCards">
-        <div class="card rounded-2xl p-5">
-          <div class="muted text-xs">Monthly Score</div>
-          <div id="kpiMonthly" class="text-3xl font-bold mt-2">—</div>
-          <div class="muted text-xs mt-1">Shown out of <span class="mono">4</span></div>
-        </div>
-
-        <div class="card rounded-2xl p-5">
-          <div class="muted text-xs">Weekly Score</div>
-          <div id="kpiWeekly" class="text-3xl font-bold mt-2">—</div>
-          <div id="kpiWeeklyNote" class="muted text-xs mt-1">Avg of 0 weeks</div>
-        </div>
-
-        <div class="card rounded-2xl p-5">
-          <div class="muted text-xs">Final Average</div>
-          <div id="kpiFinal" class="text-3xl font-bold mt-2">—</div>
-          <div class="muted text-xs mt-1">(Monthly + Weekly) / 2</div>
-        </div>
-
-        <div class="card rounded-2xl p-5">
-          <div class="muted text-xs">Quarter Score</div>
-          <div id="kpiQuarter" class="text-3xl font-bold mt-2">—</div>
-          <div id="kpiQuarterNote" class="muted text-xs mt-1">Months: —</div>
-        </div>
-      </div>
-
-      <!-- INCIDENTS -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <div class="card rounded-2xl p-5">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <div class="font-semibold">Your Incidents</div>
-              <div class="muted text-xs mt-1">Staff | Date | Incident | Notes</div>
-            </div>
-            <div class="chip rounded-full px-3 py-1 text-xs muted">Status only (notes not counted)</div>
-          </div>
-
-          <div class="mt-4 tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th class="px-4 py-3">Staff</th>
-                  <th class="px-4 py-3">Date</th>
-                  <th class="px-4 py-3">Incident</th>
-                  <th class="px-4 py-3">Notes</th>
-                </tr>
-              </thead>
-              <tbody id="myIncTbody">
-                <tr><td class="px-4 py-3 muted" colspan="4">—</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div id="pwCard" class="card rounded-2xl p-5 hidden">
-          <div class="font-semibold">Change Password</div>
-          <div class="muted text-xs mt-1">Set your own password after first login.</div>
-
-          <div class="mt-4 space-y-3">
-            <input id="oldPass" type="password" class="inp w-full rounded-xl px-3 py-2 outline-none" placeholder="Old password" />
-            <input id="newPass" type="password" class="inp w-full rounded-xl px-3 py-2 outline-none" placeholder="New password (min 4 char)" />
-            <button id="btnUpdatePass" class="btn-primary w-full rounded-xl py-2 font-semibold" type="button">Update Password</button>
-            <div id="pwMsg" class="text-xs muted"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card rounded-2xl mt-4 p-5">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <div class="font-semibold">All Incidents (Everyone)</div>
-            <div class="muted text-xs mt-1">Staff | Date | Incident | Notes</div>
-          </div>
-          <button id="btnToggleNormal" class="btn rounded-full px-3 py-1 text-xs">Only Status != Normal</button>
-        </div>
-
-        <div class="mt-4 tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th class="px-4 py-3">Staff</th>
-                <th class="px-4 py-3">Date</th>
-                <th class="px-4 py-3">Incident</th>
-                <th class="px-4 py-3">Notes</th>
-              </tr>
-            </thead>
-            <tbody id="allIncTbody">
-              <tr><td class="px-4 py-3 muted" colspan="4">—</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ALL STAFF -->
-      <div class="card rounded-2xl mt-4 p-5">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div>
-            <div class="font-semibold">All Staff Scores</div>
-            <div class="muted text-xs mt-1">Sorted by Final score (highest first)</div>
-          </div>
-          <input id="searchBox" class="inp rounded-xl px-3 py-2 text-sm outline-none" placeholder="Search StaffID or Name..." />
-        </div>
-
-        <div class="mt-4 tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th class="px-4 py-3">Rank</th>
-                <th class="px-4 py-3">StaffID</th>
-                <th class="px-4 py-3">Name</th>
-                <th class="px-4 py-3">Monthly</th>
-                <th class="px-4 py-3">Weekly</th>
-                <th class="px-4 py-3">Final</th>
-                <th class="px-4 py-3">Incidents</th>
-              </tr>
-            </thead>
-            <tbody id="staffTbody">
-              <tr><td class="px-4 py-3 muted" colspan="7">—</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="muted text-xs mt-3" id="staffCount"></div>
       </div>
     </div>
   </div>
@@ -243,529 +111,113 @@
   </div>
 
 <script>
-  // ✅ YOUR REAL WEB APP URL (from your message)
-  const GAS_URL = "https://script.google.com/a/macros/casinomcw.com/s/AKfycbwWbjQVOy1PQfQvro4H5ogz2_WBpoZiSwCCg2zRbAtCmehqj3hB7DKcGKHikWgHfASF/exec";
+  // ✅ YOUR WEB APP URL (exactly as you sent)
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbwWbjQVOy1PQfQvro4H5ogz2_WBpoZiSwCCg2zRbAtCmehqj3hB7DKcGKHikWgHfASF/exec";
 
   const $ = (id) => document.getElementById(id);
-
-  const state = {
-    session: null,          // returned by server (if any)
-    staffId: null,
-    staffName: null,
-    months: [],
-    selected: null,
-    showOnlyAbnormal: true,
-
-    // auto-detected action names (so we don't guess wrong)
-    ACTION_LOGIN: null,
-    ACTION_DASH: null,
-    ACTION_PASS: null,
-  };
 
   function toast(msg){
     const el = $("toast");
     el.textContent = msg;
     el.classList.remove("hidden");
-    setTimeout(()=> el.classList.add("hidden"), 2400);
+    setTimeout(()=> el.classList.add("hidden"), 2500);
   }
 
-  function showErr(elId, msg){
-    const el = $(elId);
-    el.textContent = msg;
-    el.classList.remove("hidden");
-  }
-  function hideErr(elId){
-    const el = $(elId);
-    el.classList.add("hidden");
+  function showErr(msg){
+    $("loginErr").textContent = msg;
+    $("loginErr").classList.remove("hidden");
   }
 
-  function normStaffId(v){
-    return String(v || "").trim().toUpperCase();
+  function hideErr(){
+    $("loginErr").classList.add("hidden");
+    $("loginErr").textContent = "";
   }
 
-  async function fetchJson(bodyObj, timeoutMs = 20000){
-    const controller = new AbortController();
-    const to = setTimeout(()=>controller.abort(), timeoutMs);
-
-    try{
-      const r = await fetch(GAS_URL, {
+  // Stronger fetch handler (shows proper reason when deployment is not public)
+  async function api(action, payload = {}) {
+    let r;
+    try {
+      r = await fetch(GAS_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoid preflight
-        body: JSON.stringify(bodyObj),
-        signal: controller.signal,
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action, ...payload }),
+        redirect: "follow",
+        cache: "no-store"
       });
-
-      const text = await r.text();
-      let json;
-      try { json = JSON.parse(text); }
-      catch(e){ throw new Error("Server did not return JSON. Raw: " + text.slice(0, 160)); }
-
-      return json;
-    } catch(e){
-      if (String(e.name) === "AbortError") throw new Error("Request timeout. Web app not responding.");
-      throw new Error(e.message || String(e));
-    } finally {
-      clearTimeout(to);
-    }
-  }
-
-  async function apiTryActions(actionList, payload){
-    let lastErr = null;
-
-    for (const act of actionList){
-      try{
-        const res = await fetchJson({ action: act, ...payload });
-        // Accept success OR known structured response
-        if (res && (res.success === true || res.ok === true || res.status === "success" || res.user || res.data)) {
-          return { action: act, res };
-        }
-        // If server returns explicit unknown action, continue
-        if (res && res.success === false && String(res.error || "").toLowerCase().includes("unknown")) {
-          lastErr = new Error(res.error);
-          continue;
-        }
-        // If server returns structured error, stop
-        if (res && res.success === false) throw new Error(res.error || "Request failed");
-        return { action: act, res }; // fallback
-      } catch(e){
-        lastErr = e;
-      }
+    } catch (e) {
+      // Network/CORS/deploy restriction
+      $("deployHint").classList.remove("hidden");
+      throw new Error("Failed to fetch (Web App access is not public or blocked).");
     }
 
-    throw lastErr || new Error("Request failed");
-  }
+    const txt = await r.text();
 
-  function setHint(msg){
-    const box = $("hintBox");
-    if (!msg){
-      box.classList.add("hidden");
-      box.textContent = "";
-      return;
-    }
-    box.textContent = "⚠ " + msg;
-    box.classList.remove("hidden");
-  }
-
-  function fmtNum(v){
-    if (v === null || v === undefined || v === "" || Number.isNaN(Number(v))) return "—";
-    return Number(v).toFixed(2);
-  }
-
-  function safeArr(v){ return Array.isArray(v) ? v : []; }
-
-  function fillMonthDropdown(months){
-    const sel = $("monthSelect");
-    sel.innerHTML = "";
-
-    const optAll = document.createElement("option");
-    optAll.value = "__ALL__";
-    optAll.textContent = "All Months";
-    sel.appendChild(optAll);
-
-    const optWeekly = document.createElement("option");
-    optWeekly.value = "__WEEKLY__";
-    optWeekly.textContent = "Weekly (All weeks)";
-    sel.appendChild(optWeekly);
-
-    months.forEach(m=>{
-      const o = document.createElement("option");
-      o.value = m;
-      o.textContent = m;
-      sel.appendChild(o);
-    });
-  }
-
-  function renderIncidents(tbodyId, incidents){
-    const tb = $(tbodyId);
-    const rows = safeArr(incidents);
-
-    if (!rows.length){
-      tb.innerHTML = `<tr><td class="px-4 py-3 ok" colspan="4">No incidents ✅</td></tr>`;
-      return;
+    // Sometimes Apps Script returns HTML login page when access is restricted
+    if (txt.trim().startsWith("<!DOCTYPE html") || txt.includes("<html")) {
+      $("deployHint").classList.remove("hidden");
+      throw new Error("Web App returned HTML (deployment access not set to Anyone).");
     }
 
-    tb.innerHTML = rows.map(x=>{
-      const staff = x.staffName || x.name || x.staff || "";
-      const date = x.date || x.day || x.label || "";
-      const incident = x.incident || x.status || "";
-      const notes = x.notes || x.note || "";
-      return `
-        <tr>
-          <td class="px-4 py-3">${escapeHtml(staff)}</td>
-          <td class="px-4 py-3 mono">${escapeHtml(date)}</td>
-          <td class="px-4 py-3 danger font-semibold">${escapeHtml(incident)}</td>
-          <td class="px-4 py-3">${escapeHtml(notes)}</td>
-        </tr>`;
-    }).join("");
-  }
-
-  function renderStaffTable(allStaff){
-    const tb = $("staffTbody");
-    const q = $("searchBox").value.trim().toLowerCase();
-    let rows = safeArr(allStaff);
-
-    if (q){
-      rows = rows.filter(r=>{
-        const sid = String(r.staffId || "").toLowerCase();
-        const nm  = String(r.name || r.staffName || "").toLowerCase();
-        return sid.includes(q) || nm.includes(q);
-      });
+    let data;
+    try {
+      data = JSON.parse(txt);
+    } catch (e) {
+      throw new Error("API returned non-JSON response.");
     }
-
-    if (!rows.length){
-      tb.innerHTML = `<tr><td class="px-4 py-3 muted" colspan="7">No staff found</td></tr>`;
-      $("staffCount").textContent = "";
-      return;
-    }
-
-    // sort by final desc
-    rows.sort((a,b)=> (Number(b.final)||-999) - (Number(a.final)||-999));
-
-    tb.innerHTML = rows.map((r, i)=>{
-      return `
-        <tr>
-          <td class="px-4 py-3">${i+1}</td>
-          <td class="px-4 py-3 mono">${escapeHtml(r.staffId || "")}</td>
-          <td class="px-4 py-3">${escapeHtml(r.name || r.staffName || "")}</td>
-          <td class="px-4 py-3 mono">${fmtNum(r.monthly)}</td>
-          <td class="px-4 py-3 mono">${fmtNum(r.weekly)}</td>
-          <td class="px-4 py-3 mono font-semibold">${fmtNum(r.final)}</td>
-          <td class="px-4 py-3 mono ${Number(r.incidents||0)>0 ? "danger font-semibold" : ""}">${Number(r.incidents||0) || 0}</td>
-        </tr>`;
-    }).join("");
-
-    $("staffCount").textContent = `Showing ${rows.length} staff`;
+    return data;
   }
 
-  function escapeHtml(s){
-    return String(s ?? "")
-      .replaceAll("&","&amp;").replaceAll("<","&lt;")
-      .replaceAll(">","&gt;").replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  // -------- Export helpers --------
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type: "text/plain;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportCSV(allStaff){
-    const rows = safeArr(allStaff);
-    const header = ["Rank","StaffID","Name","Monthly","Weekly","Final","Incidents"];
-    rows.sort((a,b)=> (Number(b.final)||-999) - (Number(a.final)||-999));
-    const lines = [header.join(",")];
-
-    rows.forEach((r,i)=>{
-      const line = [
-        i+1,
-        `"${String(r.staffId||"").replaceAll('"','""')}"`,
-        `"${String(r.name||r.staffName||"").replaceAll('"','""')}"`,
-        Number(r.monthly||0).toFixed(2),
-        Number(r.weekly||0).toFixed(2),
-        Number(r.final||0).toFixed(2),
-        Number(r.incidents||0)
-      ];
-      lines.push(line.join(","));
-    });
-
-    downloadText("staff_scores.csv", lines.join("\n"));
-  }
-
-  function exportMyReport(payload){
-    // simple readable report
-    const me = payload.me || payload.my || payload.userScores || {};
-    const inc = safeArr(payload.myIncidents);
-    const lines = [];
-
-    lines.push(`Staff Score Report`);
-    lines.push(`Staff: ${state.staffId} - ${state.staffName}`);
-    lines.push(`Selected: ${state.selected}`);
-    lines.push(``);
-    lines.push(`Monthly: ${fmtNum(me.monthly)} / 4`);
-    lines.push(`Weekly: ${fmtNum(me.weekly)}`);
-    lines.push(`Final: ${fmtNum(me.final)}`);
-    lines.push(`Quarter: ${fmtNum(me.quarter)} (Months: ${(me.quarterMonths||[]).join(", ") || "-"})`);
-    lines.push(``);
-    lines.push(`Incidents:`);
-    if (!inc.length) lines.push(`- None`);
-    else inc.forEach(x=>{
-      lines.push(`- ${x.staffName||x.name||state.staffName} | ${x.date||x.day||""} | ${x.incident||x.status||""} | ${x.notes||""}`);
-    });
-
-    downloadText(`my_report_${state.staffId}_${String(state.selected).replaceAll(" ","_")}.txt`, lines.join("\n"));
-  }
-
-  // -------- Core flows --------
   async function doLogin(){
-    hideErr("loginErr");
+    hideErr();
+    $("deployHint").classList.add("hidden");
 
-    const staffId = normStaffId($("loginStaffId").value);
+    const staffId = $("loginStaffId").value.trim().toUpperCase(); // ✅ force uppercase
     const password = $("loginPass").value;
 
-    if (!staffId || !password){
-      showErr("loginErr", "Please enter StaffID and password.");
-      return;
-    }
+    if (!staffId || !password) return showErr("Please enter StaffID and password.");
 
     $("btnLogin").disabled = true;
-    $("btnLogin").classList.add("opacity-70");
+    $("btnLogin").textContent = "Logging in...";
     toast("Logging in…");
 
-    try{
-      // try common action names
-      const { action, res } = await apiTryActions(["login","auth","signin","doLogin"], { staffId, password });
-      state.ACTION_LOGIN = action;
+    try {
+      const res = await api("login", { staffId, password });
 
-      if (res.success === false) throw new Error(res.error || "Login failed");
+      if (!res || res.success !== true) {
+        throw new Error(res?.error || "Login failed");
+      }
 
-      state.staffId = normStaffId(res.staffId || res.user?.staffId || staffId);
-      state.staffName = res.staffName || res.user?.name || res.name || "";
-
-      state.session = res.session || res.token || res.sessionKey || res.sid || null;
-
-      $("whoami").textContent = `${state.staffId}${state.staffName ? " • " + state.staffName : ""}`;
+      // ✅ success UI
+      $("whoami").textContent = `${staffId}${res.name ? " • " + res.name : ""}`;
       $("topRight").classList.remove("hidden");
-      $("topRight").classList.add("flex");
-
-      // show dash
       $("loginCard").classList.add("hidden");
       $("dash").classList.remove("hidden");
-
-      // load dashboard data (initial)
-      await loadDashboard(true);
-
       toast("Login success ✅");
-    } catch(e){
-      showErr("loginErr", e.message || String(e));
+    } catch (e) {
+      showErr(e.message || String(e));
     } finally {
       $("btnLogin").disabled = false;
-      $("btnLogin").classList.remove("opacity-70");
-    }
-  }
-
-  async function loadDashboard(isFirst = false){
-    setHint("");
-
-    // pick selected
-    const sel = $("monthSelect").value || state.selected || "__ALL__";
-    state.selected = sel;
-
-    $("selectedLabel").textContent =
-      sel === "__ALL__" ? "All Months" :
-      sel === "__WEEKLY__" ? "Weekly (All weeks)" :
-      sel;
-
-    $("kpiMonthly").textContent = "—";
-    $("kpiWeekly").textContent = "—";
-    $("kpiFinal").textContent = "—";
-    $("kpiQuarter").textContent = "—";
-    $("kpiQuarterNote").textContent = "Months: —";
-    $("kpiWeeklyNote").textContent = "Avg of 0 weeks";
-
-    // call server
-    const payload = {
-      staffId: state.staffId,
-      session: state.session,
-      month: sel,
-      onlyAbnormal: state.showOnlyAbnormal
-    };
-
-    const { action, res } = await apiTryActions(
-      [
-        state.ACTION_DASH || "getDashboard",
-        "dashboard",
-        "getData",
-        "load",
-        "init"
-      ],
-      payload
-    );
-    state.ACTION_DASH = action;
-
-    if (res.success === false) throw new Error(res.error || "Failed to load dashboard");
-
-    // Months list
-    const months = safeArr(res.months || res.monthSheets || res.data?.months);
-    if (months.length){
-      state.months = months;
-      if (isFirst){
-        fillMonthDropdown(months);
-
-        // default month = first month if available
-        if (!state.selected || state.selected === "__ALL__"){
-          state.selected = months[0] || "__ALL__";
-          $("monthSelect").value = state.selected;
-          $("selectedLabel").textContent = state.selected;
-        } else {
-          $("monthSelect").value = state.selected;
-        }
-      } else {
-        // keep list fresh
-        fillMonthDropdown(months);
-        $("monthSelect").value = state.selected;
-      }
-    } else if (isFirst){
-      // still render dropdown with All+Weekly so UI works
-      fillMonthDropdown([]);
-      $("monthSelect").value = "__ALL__";
-    }
-
-    // scores for logged user
-    const me = res.me || res.my || res.userScores || res.data?.me || {};
-    $("kpiMonthly").textContent = fmtNum(me.monthly);
-    $("kpiWeekly").textContent = fmtNum(me.weekly);
-    $("kpiFinal").textContent = fmtNum(me.final);
-    $("kpiQuarter").textContent = fmtNum(me.quarter);
-
-    const qMonths = safeArr(me.quarterMonths || me.months || res.quarterMonths);
-    if (qMonths.length) $("kpiQuarterNote").textContent = "Months: " + qMonths.join(", ");
-
-    const wkCount = Number(me.weekCount || me.weeks || 0);
-    if (wkCount) $("kpiWeeklyNote").textContent = `Avg of ${wkCount} weeks`;
-
-    // not found hint
-    if (res.hint || res.message){
-      setHint(res.hint || res.message);
-    }
-
-    // incidents
-    renderIncidents("myIncTbody", res.myIncidents || res.my_incidents || []);
-    renderIncidents("allIncTbody", res.allIncidents || res.all_incidents || []);
-
-    // all staff
-    const allStaff = res.allStaff || res.staff || res.staffScores || res.data?.allStaff || [];
-    state._allStaffCache = safeArr(allStaff);
-    renderStaffTable(state._allStaffCache);
-
-    // password change visibility
-    const mustChange =
-      !!(res.mustChangePassword || res.forcePasswordChange || res.user?.mustChangePassword || res.password?.mustChange);
-
-    if (mustChange){
-      $("pwCard").classList.remove("hidden");
-    } else {
-      $("pwCard").classList.add("hidden");
-    }
-
-    // keep selection synced
-    $("monthSelect").value = state.selected;
-  }
-
-  async function doChangePassword(){
-    $("pwMsg").textContent = "";
-    const oldPass = $("oldPass").value;
-    const newPass = $("newPass").value;
-
-    if (!oldPass || !newPass || newPass.length < 4){
-      $("pwMsg").textContent = "Please enter old password and a new password (min 4 characters).";
-      return;
-    }
-
-    $("btnUpdatePass").disabled = true;
-    $("btnUpdatePass").classList.add("opacity-70");
-
-    try{
-      const { action, res } = await apiTryActions(
-        [state.ACTION_PASS || "changePassword","updatePassword","setPassword"],
-        { staffId: state.staffId, session: state.session, oldPass, newPass }
-      );
-      state.ACTION_PASS = action;
-
-      if (res.success === false) throw new Error(res.error || "Password update failed");
-
-      toast("Password updated ✅");
-      $("pwMsg").textContent = "Password updated ✅";
-
-      // hide password card after success
-      $("pwCard").classList.add("hidden");
-      $("oldPass").value = "";
-      $("newPass").value = "";
-    } catch(e){
-      $("pwMsg").textContent = e.message || String(e);
-    } finally {
-      $("btnUpdatePass").disabled = false;
-      $("btnUpdatePass").classList.remove("opacity-70");
+      $("btnLogin").textContent = "Login";
     }
   }
 
   function doLogout(){
-    state.session = null;
-    state.staffId = null;
-    state.staffName = null;
-    state.months = [];
-    state.selected = "__ALL__";
-
+    $("topRight").classList.add("hidden");
     $("dash").classList.add("hidden");
     $("loginCard").classList.remove("hidden");
-
-    $("topRight").classList.add("hidden");
-    $("whoami").textContent = "";
     $("loginPass").value = "";
-    setHint("");
-    toast("Logged out");
+    hideErr();
+    $("deployHint").classList.add("hidden");
   }
 
-  // -------- Wire up UI --------
   window.addEventListener("DOMContentLoaded", () => {
-    // click + enter
     $("btnLogin").addEventListener("click", doLogin);
+
     $("loginPass").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
-    $("loginStaffId").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
+    $("loginStaffId").addEventListener("input", (e)=>{ e.target.value = e.target.value.toUpperCase(); });
 
     $("btnLogout").addEventListener("click", doLogout);
-
-    $("btnRefresh").addEventListener("click", async ()=>{
-      try { toast("Refreshing…"); await loadDashboard(false); }
-      catch(e){ setHint(e.message || String(e)); }
-    });
-
-    $("monthSelect").addEventListener("change", async ()=>{
-      state.selected = $("monthSelect").value;
-      try { await loadDashboard(false); }
-      catch(e){ setHint(e.message || String(e)); }
-    });
-
-    $("btnToggleNormal").addEventListener("click", async ()=>{
-      state.showOnlyAbnormal = !state.showOnlyAbnormal;
-      $("btnToggleNormal").textContent = state.showOnlyAbnormal ? "Only Status != Normal" : "Show All Status";
-      try { await loadDashboard(false); }
-      catch(e){ setHint(e.message || String(e)); }
-    });
-
-    $("searchBox").addEventListener("input", ()=> renderStaffTable(state._allStaffCache || []));
-
-    $("btnExportCSV").addEventListener("click", ()=> exportCSV(state._allStaffCache || []));
-    $("btnExportMe").addEventListener("click", ()=>{
-      // export with latest cached payload-like summary
-      // we store last payload in state if you want, but here we call refresh first to be safe
-      (async()=>{
-        try{
-          const sel = $("monthSelect").value || "__ALL__";
-          const { res } = await apiTryActions(
-            [state.ACTION_DASH || "getDashboard","dashboard","getData","load","init"],
-            { staffId: state.staffId, session: state.session, month: sel, onlyAbnormal: state.showOnlyAbnormal }
-          );
-          exportMyReport(res);
-        } catch(e){
-          toast("Export failed");
-          setHint(e.message || String(e));
-        }
-      })();
-    });
-
-    $("btnUpdatePass").addEventListener("click", doChangePassword);
-
-    // default dropdown before server loads
-    fillMonthDropdown([]);
-    $("monthSelect").value = "__ALL__";
-    $("selectedLabel").textContent = "All Months";
+    $("btnBackToLogin").addEventListener("click", doLogout);
   });
 </script>
 </body>
