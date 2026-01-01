@@ -1,224 +1,568 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Staff Score Dashboard</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
-
   <style>
-    :root { color-scheme: dark; }
-    body {
-      background:
-        radial-gradient(1200px 600px at 20% 0%, rgba(99,102,241,.18), transparent 60%),
-        radial-gradient(900px 500px at 90% 10%, rgba(14,165,233,.12), transparent 55%),
-        #070b18;
-    }
-
-    /* ✅ never block clicks */
-    * { pointer-events: auto; }
-
-    .card { background: rgba(15, 23, 42, .72); border: 1px solid rgba(148,163,184,.14); box-shadow: 0 10px 35px rgba(0,0,0,.35); }
-    .chip { border: 1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.55); }
-    .btn { border: 1px solid rgba(148,163,184,.18); background: rgba(2,6,23,.55); cursor:pointer; }
-    .btn:hover { background: rgba(30,41,59,.6); }
-    .btn-primary { background: rgba(99,102,241,.85); border-color: rgba(99,102,241,.35); cursor:pointer; }
-    .btn-primary:hover { background: rgba(99,102,241,.95); }
-    .inp { background: rgba(2,6,23,.55); border: 1px solid rgba(148,163,184,.18); }
-    .muted { color: rgb(148 163 184); }
-    .danger { color: rgb(248 113 113); }
-    .warn { color: rgb(251 191 36); }
-    .ok { color: rgb(74 222 128); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .toast { position: fixed; right: 16px; bottom: 16px; z-index: 9999; pointer-events:none; }
-    .toast > * { pointer-events:auto; }
-    .hidden { display:none !important; }
-
-    @media (max-width: 640px){
-      .gridCards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-    }
-
-    #loginCard { position: relative; z-index: 5000; }
-    #btnLogin { position: relative; z-index: 6000; pointer-events: auto !important; cursor: pointer !important; }
+    :root{ color-scheme: dark; }
+    body{ background:#050816; }
+    .glass{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:16px; }
+    .btn{ background:#4f46e5; }
+    .btn:hover{ filter:brightness(1.05); }
+    .chip{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:999px; padding:.25rem .6rem; font-size:.75rem; }
+    .tbl th,.tbl td{ padding:.6rem .7rem; border-bottom:1px solid rgba(255,255,255,.06); }
   </style>
 </head>
 
-<body class="min-h-screen text-slate-100">
-  <div class="max-w-[1200px] mx-auto px-4 py-10">
+<body class="text-slate-100">
+  <div class="max-w-6xl mx-auto p-6">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">Staff Score Dashboard</h1>
-        <p class="muted mt-1 text-sm">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</p>
+        <h1 class="text-3xl font-bold">Staff Score Dashboard</h1>
+        <div class="text-sm text-slate-400 mt-1">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</div>
       </div>
-      <div id="topRight" class="hidden items-center gap-2">
-        <div class="chip rounded-full px-3 py-1 text-xs">
-          <span id="whoami" class="muted"></span>
-        </div>
-        <button id="btnLogout" class="btn rounded-full px-3 py-1 text-xs" type="button">Logout</button>
+      <div class="flex gap-2 items-center">
+        <span id="userChip" class="chip hidden"></span>
+        <button id="logoutBtn" class="chip hidden">Logout</button>
       </div>
     </div>
 
     <!-- LOGIN -->
-    <div id="loginCard" class="card rounded-2xl mt-8 p-6">
+    <section id="loginSection" class="glass mt-6 p-6">
       <div class="grid md:grid-cols-2 gap-6 items-center">
         <div>
-          <h2 class="text-lg font-semibold">Login</h2>
-          <p class="muted text-sm mt-1">Use your StaffID + password.</p>
-          <p class="muted text-xs mt-3">(Default password is NOT shown here. You will share it manually to staff.)</p>
-          <p class="muted text-xs mt-2">If login fails, ask admin to re-deploy Web App with access = <b>Anyone</b>.</p>
+          <h2 class="text-xl font-semibold">Login</h2>
+          <p class="text-sm text-slate-400 mt-2">Use your <b>StaffID</b> + password.</p>
+          <p class="text-xs text-slate-500 mt-2">If login fails, ask admin to run: <b>Weekly Score Tools → Initialize / Sync AUTH</b></p>
+          <p id="loginErr" class="text-sm text-red-400 mt-3 hidden"></p>
         </div>
-
         <div class="space-y-3">
-          <div>
-            <label class="muted text-xs">StaffID</label>
-            <input id="loginStaffId" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="e.g. S016" />
-          </div>
-          <div>
-            <label class="muted text-xs">Password</label>
-            <input id="loginPass" type="password" class="inp w-full rounded-xl px-3 py-2 mt-1 outline-none" placeholder="••••••••" />
-          </div>
-
-          <button id="btnLogin" class="btn-primary w-full rounded-xl py-2 font-semibold" type="button">Login</button>
-
-          <div id="loginErr" class="text-sm danger hidden"></div>
-
-          <!-- extra hint shown only when fetch blocked -->
-          <div id="deployHint" class="text-xs warn hidden">
-            ⚠️ API blocked. In Apps Script deployment set:
-            <b>Who has access = Anyone</b> (or Anyone with link), then Deploy again.
-          </div>
+          <input id="staffId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="StaffID e.g. S001" />
+          <input id="password" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Password" />
+          <button id="loginBtn" class="w-full btn rounded-xl py-2 font-semibold">Login</button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- DASHBOARD (kept minimal here; your API should return next data after login) -->
-    <div id="dash" class="hidden">
-      <div class="card rounded-2xl mt-8 p-5">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <!-- DASHBOARD -->
+    <section id="dashSection" class="hidden">
+      <div class="glass mt-6 p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <h3 class="font-semibold">Logged in ✅</h3>
-            <div class="muted text-xs mt-1">Now API is reachable. You can connect the remaining dashboard actions.</div>
+            <h2 class="text-xl font-semibold">Your Live Scores</h2>
+            <div id="selMonthTxt" class="text-sm text-slate-400 mt-1"></div>
           </div>
-          <button id="btnBackToLogin" class="btn rounded-xl px-3 py-2 text-sm" type="button">Back</button>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="monthSelect" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none"></select>
+            <button id="refreshBtn" class="chip">Refresh</button>
+            <button id="exportMyBtn" class="chip">Export My Report</button>
+            <button id="exportAllBtn" class="chip">Export CSV</button>
+          </div>
+        </div>
+
+        <div id="warnBox" class="mt-3 text-sm text-amber-300 hidden"></div>
+
+        <!-- score cards -->
+        <div class="grid md:grid-cols-4 gap-4 mt-6">
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Monthly Score</div>
+            <div id="monthlyScore" class="text-3xl font-bold mt-2">—</div>
+            <div class="text-xs text-slate-500 mt-1">Shown out of 4</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Weekly Score</div>
+            <div id="weeklyScore" class="text-3xl font-bold mt-2">—</div>
+            <div id="weeklyHint" class="text-xs text-slate-500 mt-1">Average of all weeks</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Final Average</div>
+            <div id="finalAvg" class="text-3xl font-bold mt-2">—</div>
+            <div class="text-xs text-slate-500 mt-1">(Monthly + Weekly) / 2</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Quarter Score</div>
+            <div id="quarterScore" class="text-3xl font-bold mt-2">—</div>
+            <div id="quarterHint" class="text-xs text-slate-500 mt-1">Quarter months auto</div>
+          </div>
+        </div>
+
+        <!-- incidents + change password -->
+        <div class="grid md:grid-cols-2 gap-4 mt-6">
+          <div class="glass p-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Your Incidents</h3>
+              <span class="chip">Status only (notes not counted)</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-1">Staff | Date | Incident | Notes</div>
+            <div class="overflow-auto mt-3">
+              <table class="tbl w-full text-sm">
+                <thead class="text-slate-300">
+                  <tr>
+                    <th class="text-left">Staff</th>
+                    <th class="text-left">Date</th>
+                    <th class="text-left">Incident</th>
+                    <th class="text-left">Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="myIncBody"></tbody>
+              </table>
+            </div>
+            <div id="myIncEmpty" class="text-sm text-emerald-300 mt-3 hidden">No incidents ✅</div>
+          </div>
+
+          <div id="pwCard" class="glass p-4">
+            <h3 class="font-semibold">Change Password</h3>
+            <div class="text-xs text-slate-500 mt-1">Set your own password after first login.</div>
+            <div class="mt-4 space-y-3">
+              <input id="oldPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Old password" />
+              <input id="newPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="New password (min 4 char)" />
+              <button id="pwBtn" class="w-full btn rounded-xl py-2 font-semibold">Update Password</button>
+              <div id="pwMsg" class="text-sm mt-2 hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ALL incidents table -->
+        <div class="glass p-4 mt-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold">All Incidents (Everyone)</h3>
+              <div class="text-xs text-slate-500 mt-1">Staff | Date | Incident | Notes</div>
+            </div>
+            <span class="chip">Only Status != Normal</span>
+          </div>
+          <div class="overflow-auto mt-3">
+            <table class="tbl w-full text-sm">
+              <thead class="text-slate-300">
+                <tr>
+                  <th class="text-left">Staff</th>
+                  <th class="text-left">Date</th>
+                  <th class="text-left">Incident</th>
+                  <th class="text-left">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="allIncBody"></tbody>
+            </table>
+          </div>
+          <div id="allIncEmpty" class="text-sm text-emerald-300 mt-3 hidden">No incidents found ✅</div>
+        </div>
+
+        <!-- leaderboard -->
+        <div class="glass p-4 mt-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold">All Staff Scores</h3>
+              <div class="text-xs text-slate-500 mt-1">Sorted by Final score (highest first)</div>
+            </div>
+            <input id="searchBox" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none text-sm"
+              placeholder="Search StaffID or Name..." />
+          </div>
+
+          <div class="overflow-auto mt-3">
+            <table class="tbl w-full text-sm">
+              <thead class="text-slate-300">
+                <tr>
+                  <th class="text-left">Rank</th>
+                  <th class="text-left">StaffID</th>
+                  <th class="text-left">Name</th>
+                  <th class="text-left">Monthly</th>
+                  <th class="text-left">Weekly</th>
+                  <th class="text-left">Final</th>
+                  <th class="text-left">Incidents</th>
+                </tr>
+              </thead>
+              <tbody id="boardBody"></tbody>
+            </table>
+          </div>
+          <div id="boardFoot" class="text-xs text-slate-500 mt-2"></div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="toast">
-    <div id="toast" class="hidden card rounded-xl px-4 py-3 text-sm"></div>
   </div>
 
 <script>
-  // ✅ YOUR WEB APP URL (exactly as you sent)
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwWbjQVOy1PQfQvro4H5ogz2_WBpoZiSwCCg2zRbAtCmehqj3hB7DKcGKHikWgHfASF/exec";
+/** ✅ Your correct Apps Script Web App URL */
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzr4gVNYrauZ8sl7Z47MtDVO5zM9YrnpRuQNo63S8rbmKaBsBOt31WPZeov6-3vQlMc/exec";
 
-  const $ = (id) => document.getElementById(id);
+const S = {
+  token: localStorage.getItem("ss_token") || "",
+  staffId: localStorage.getItem("ss_staffId") || "",
+  name: localStorage.getItem("ss_name") || "",
+  month: localStorage.getItem("ss_month") || ""
+};
 
-  function toast(msg){
-    const el = $("toast");
-    el.textContent = msg;
-    el.classList.remove("hidden");
-    setTimeout(()=> el.classList.add("hidden"), 2500);
-  }
+const $ = id => document.getElementById(id);
 
-  function showErr(msg){
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    params.callback = cb;
+    const qs = new URLSearchParams(params).toString();
+    const src = WEBAPP_URL + "?" + qs;
+
+    window[cb] = (data) => {
+      try { delete window[cb]; } catch(e){}
+      script.remove();
+      resolve(data);
+    };
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.onerror = () => {
+      try { delete window[cb]; } catch(e){}
+      script.remove();
+      reject(new Error("Network / blocked WebApp access"));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+function showLogin(msg){
+  $("loginSection").classList.remove("hidden");
+  $("dashSection").classList.add("hidden");
+  $("userChip").classList.add("hidden");
+  $("logoutBtn").classList.add("hidden");
+  if (msg){
     $("loginErr").textContent = msg;
     $("loginErr").classList.remove("hidden");
-  }
-
-  function hideErr(){
+  } else {
     $("loginErr").classList.add("hidden");
-    $("loginErr").textContent = "";
+  }
+}
+
+function showDash(){
+  $("loginSection").classList.add("hidden");
+  $("dashSection").classList.remove("hidden");
+  $("userChip").textContent = `${S.staffId} • ${S.name || ""}`.trim();
+  $("userChip").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+}
+
+function numOrDash(v){
+  return (v===null || v===undefined || v==="" || Number.isNaN(v)) ? "—" : Number(v).toFixed(2);
+}
+
+function setWarn(text){
+  if (!text){
+    $("warnBox").classList.add("hidden");
+    $("warnBox").textContent = "";
+    return;
+  }
+  $("warnBox").textContent = "⚠️ " + text;
+  $("warnBox").classList.remove("hidden");
+}
+
+async function loadMonths(){
+  const res = await jsonp({ action:"getMonths" });
+  if (!res.ok) throw new Error(res.error || "Failed getMonths");
+
+  const months = res.months || [];
+  const sel = $("monthSelect");
+  sel.innerHTML = "";
+
+  // ✅ add extra options requested
+  const extra = ["All","Weekly"];
+  const full = extra.concat(months);
+
+  const chosen = (S.month && full.includes(S.month))
+    ? S.month
+    : (months.length ? months[months.length - 1] : "All"); // ✅ default latest month
+
+  S.month = chosen;
+  localStorage.setItem("ss_month", chosen);
+
+  for (const m of full){
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    if (m === chosen) opt.selected = true;
+    sel.appendChild(opt);
   }
 
-  // Stronger fetch handler (shows proper reason when deployment is not public)
-  async function api(action, payload = {}) {
-    let r;
-    try {
-      r = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action, ...payload }),
-        redirect: "follow",
-        cache: "no-store"
-      });
-    } catch (e) {
-      // Network/CORS/deploy restriction
-      $("deployHint").classList.remove("hidden");
-      throw new Error("Failed to fetch (Web App access is not public or blocked).");
-    }
+  $("selMonthTxt").textContent = "Selected Month: " + chosen;
+}
 
-    const txt = await r.text();
-
-    // Sometimes Apps Script returns HTML login page when access is restricted
-    if (txt.trim().startsWith("<!DOCTYPE html") || txt.includes("<html")) {
-      $("deployHint").classList.remove("hidden");
-      throw new Error("Web App returned HTML (deployment access not set to Anyone).");
-    }
-
-    let data;
-    try {
-      data = JSON.parse(txt);
-    } catch (e) {
-      throw new Error("API returned non-JSON response.");
-    }
-    return data;
+function renderIncidentsTable(tbody, list){
+  tbody.innerHTML = "";
+  for (const x of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="text-slate-200">${escapeHtml(x.staffName || x.staffId)}</td>
+      <td class="text-slate-300">${escapeHtml(x.date || "")}</td>
+      <td class="text-rose-300 font-semibold">${escapeHtml(x.incident || "")}</td>
+      <td class="text-slate-300">${escapeHtml(x.notes || "")}</td>
+    `;
+    tbody.appendChild(tr);
   }
+}
 
-  async function doLogin(){
-    hideErr();
-    $("deployHint").classList.add("hidden");
+function escapeHtml(s){
+  return String(s||"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
 
-    const staffId = $("loginStaffId").value.trim().toUpperCase(); // ✅ force uppercase
-    const password = $("loginPass").value;
+async function loadDashboard(){
+  $("selMonthTxt").textContent = "Selected Month: " + S.month;
 
-    if (!staffId || !password) return showErr("Please enter StaffID and password.");
-
-    $("btnLogin").disabled = true;
-    $("btnLogin").textContent = "Logging in...";
-    toast("Logging in…");
-
-    try {
-      const res = await api("login", { staffId, password });
-
-      if (!res || res.success !== true) {
-        throw new Error(res?.error || "Login failed");
-      }
-
-      // ✅ success UI
-      $("whoami").textContent = `${staffId}${res.name ? " • " + res.name : ""}`;
-      $("topRight").classList.remove("hidden");
-      $("loginCard").classList.add("hidden");
-      $("dash").classList.remove("hidden");
-      toast("Login success ✅");
-    } catch (e) {
-      showErr(e.message || String(e));
-    } finally {
-      $("btnLogin").disabled = false;
-      $("btnLogin").textContent = "Login";
-    }
-  }
-
-  function doLogout(){
-    $("topRight").classList.add("hidden");
-    $("dash").classList.add("hidden");
-    $("loginCard").classList.remove("hidden");
-    $("loginPass").value = "";
-    hideErr();
-    $("deployHint").classList.add("hidden");
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    $("btnLogin").addEventListener("click", doLogin);
-
-    $("loginPass").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
-    $("loginStaffId").addEventListener("input", (e)=>{ e.target.value = e.target.value.toUpperCase(); });
-
-    $("btnLogout").addEventListener("click", doLogout);
-    $("btnBackToLogin").addEventListener("click", doLogout);
+  const res = await jsonp({
+    action:"dashboard",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
   });
+
+  if (!res.ok) throw new Error(res.error || "dashboard failed");
+
+  $("monthlyScore").textContent = numOrDash(res.monthlyScore);
+  $("weeklyScore").textContent = numOrDash(res.weeklyScore);
+  $("finalAvg").textContent = numOrDash(res.finalAvg);
+  $("quarterScore").textContent = numOrDash(res.quarterScore);
+
+  const qh = (res.quarterMonths && res.quarterMonths.length) ? res.quarterMonths.join(", ") : "—";
+  $("quarterHint").textContent = "Months: " + qh;
+
+  if (res.latestWeek && res.latestWeek.weekStart && res.latestWeek.weekEnd){
+    $("weeklyHint").textContent = `Avg of ${res.weeksCount} weeks • Latest: ${new Date(res.latestWeek.weekStart).toDateString()} → ${new Date(res.latestWeek.weekEnd).toDateString()}`;
+  } else {
+    $("weeklyHint").textContent = `Avg of ${res.weeksCount} weeks`;
+  }
+
+  // ✅ show warning ONLY for real month tabs (not All/Weekly)
+  if ((S.month !== "All" && S.month !== "Weekly") && res.monthlyScore === null){
+    setWarn("Your StaffID is not found in this month tab. Add your row in the month sheet to show monthly score.");
+  } else {
+    setWarn("");
+  }
+
+  // My incidents
+  const myInc = res.myIncidents || [];
+  if (!myInc.length){
+    $("myIncEmpty").classList.remove("hidden");
+    $("myIncBody").innerHTML = "";
+  } else {
+    $("myIncEmpty").classList.add("hidden");
+    renderIncidentsTable($("myIncBody"), myInc);
+  }
+}
+
+async function loadAllIncidents(){
+  const res = await jsonp({
+    action:"incidents",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
+  });
+  if (!res.ok) throw new Error(res.error || "incidents failed");
+
+  const all = res.all || [];
+  if (!all.length){
+    $("allIncEmpty").classList.remove("hidden");
+    $("allIncBody").innerHTML = "";
+  } else {
+    $("allIncEmpty").classList.add("hidden");
+    renderIncidentsTable($("allIncBody"), all);
+  }
+}
+
+let leaderboardCache = [];
+async function loadLeaderboard(){
+  const res = await jsonp({
+    action:"leaderboard",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
+  });
+  if (!res.ok) throw new Error(res.error || "leaderboard failed");
+
+  leaderboardCache = res.rows || [];
+  renderLeaderboard(leaderboardCache);
+}
+
+function renderLeaderboard(list){
+  const tb = $("boardBody");
+  tb.innerHTML = "";
+
+  for (const r of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.rank || ""}</td>
+      <td class="text-slate-200">${escapeHtml(r.staffId)}</td>
+      <td class="text-slate-200">${escapeHtml(r.staffName || "")}</td>
+      <td>${r.monthly==null ? "—" : Number(r.monthly).toFixed(2)}</td>
+      <td>${r.weekly==null ? "—" : Number(r.weekly).toFixed(2)}</td>
+      <td class="font-semibold">${r.final==null ? "—" : Number(r.final).toFixed(2)}</td>
+      <td class="text-slate-300">${r.incidents || 0}</td>
+    `;
+    tb.appendChild(tr);
+  }
+
+  $("boardFoot").textContent = `Showing ${list.length} of ${leaderboardCache.length} staff`;
+}
+
+function applySearch(){
+  const q = $("searchBox").value.trim().toLowerCase();
+  if (!q) return renderLeaderboard(leaderboardCache);
+  const filtered = leaderboardCache.filter(x =>
+    (x.staffId||"").toLowerCase().includes(q) ||
+    (x.staffName||"").toLowerCase().includes(q)
+  );
+  renderLeaderboard(filtered);
+}
+
+function downloadCSV(filename, rows){
+  const csv = rows.map(r => r.map(x => `"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function exportAllCSV(){
+  const rows = [
+    ["Rank","StaffID","Name","Monthly","Weekly","Final","Incidents"],
+    ...leaderboardCache.map(r => [
+      r.rank, r.staffId, r.staffName,
+      r.monthly ?? "", r.weekly ?? "", r.final ?? "", r.incidents ?? 0
+    ])
+  ];
+  downloadCSV(`StaffScores_${S.month}.csv`, rows);
+}
+
+async function exportMyReport(){
+  const dash = await jsonp({ action:"dashboard", token:S.token, staffId:S.staffId, month:S.month });
+  if (!dash.ok) throw new Error(dash.error || "export dashboard failed");
+
+  const inc = dash.myIncidents || [];
+  const rows = [
+    ["StaffID", S.staffId],
+    ["Name", S.name || ""],
+    ["Month", S.month],
+    ["MonthlyScore(out of 4)", dash.monthlyScore ?? ""],
+    ["WeeklyScore(out of 4)", dash.weeklyScore ?? ""],
+    ["FinalAverage", dash.finalAvg ?? ""],
+    ["QuarterScore", dash.quarterScore ?? ""],
+    ["QuarterMonths", (dash.quarterMonths||[]).join(" | ")],
+    [],
+    ["My Incidents (Status only, notes not counted)"],
+    ["Date","Incident","Notes"],
+    ...inc.map(x => [x.date, x.incident, x.notes])
+  ];
+  downloadCSV(`MyReport_${S.staffId}_${S.month}.csv`, rows);
+}
+
+/* =========================
+   Events
+========================= */
+
+$("loginBtn").addEventListener("click", async ()=>{
+  try{
+    $("loginErr").classList.add("hidden");
+    const staffId = $("staffId").value.trim();
+    const password = $("password").value;
+    const res = await jsonp({ action:"login", staffId, password });
+    if (!res.ok) throw new Error(res.error || "Login failed");
+
+    S.token = res.token;
+    S.staffId = res.staffId;
+    S.name = res.name || "";
+    localStorage.setItem("ss_token", S.token);
+    localStorage.setItem("ss_staffId", S.staffId);
+    localStorage.setItem("ss_name", S.name);
+
+    showDash();
+    await loadMonths();
+    await loadDashboard();
+    await loadAllIncidents();
+    await loadLeaderboard();
+
+  } catch(err){
+    showLogin(err.message || String(err));
+  }
+});
+
+$("logoutBtn").addEventListener("click", ()=>{
+  localStorage.removeItem("ss_token");
+  localStorage.removeItem("ss_staffId");
+  localStorage.removeItem("ss_name");
+  localStorage.removeItem("ss_month");
+  location.reload();
+});
+
+$("monthSelect").addEventListener("change", async ()=>{
+  S.month = $("monthSelect").value;
+  localStorage.setItem("ss_month", S.month);
+  await loadDashboard();
+  await loadAllIncidents();
+  await loadLeaderboard();
+});
+
+$("refreshBtn").addEventListener("click", async ()=>{
+  await loadDashboard();
+  await loadAllIncidents();
+  await loadLeaderboard();
+});
+
+$("pwBtn").addEventListener("click", async ()=>{
+  const oldPassword = $("oldPass").value;
+  const newPassword = $("newPass").value;
+  $("pwMsg").classList.add("hidden");
+
+  try{
+    const res = await jsonp({
+      action:"changePassword",
+      staffId:S.staffId,
+      oldPassword,
+      newPassword
+    });
+    if (!res.ok) throw new Error(res.error || "Password update failed");
+
+    $("pwMsg").textContent = "Password updated ✅";
+    $("pwMsg").className = "text-sm mt-2 text-emerald-300";
+    $("pwMsg").classList.remove("hidden");
+
+    $("pwCard").classList.add("hidden");
+
+  } catch(err){
+    $("pwMsg").textContent = err.message || String(err);
+    $("pwMsg").className = "text-sm mt-2 text-red-300";
+    $("pwMsg").classList.remove("hidden");
+  }
+});
+
+$("searchBox").addEventListener("input", applySearch);
+$("exportAllBtn").addEventListener("click", exportAllCSV);
+$("exportMyBtn").addEventListener("click", exportMyReport);
+
+/* =========================
+   Auto start if saved session
+========================= */
+(async function boot(){
+  if (!S.token || !S.staffId){
+    showLogin();
+    return;
+  }
+
+  try{
+    showDash();
+    await loadMonths();
+    await loadDashboard();
+    await loadAllIncidents();
+    await loadLeaderboard();
+  } catch (e){
+    showLogin("Session expired. Please login again.");
+  }
+})();
 </script>
 </body>
 </html>
