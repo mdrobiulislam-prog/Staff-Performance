@@ -1,477 +1,568 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Staff Score Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root { color-scheme: dark; }
-    body { background:#020617; }
-    .card { background:#0b1120; border:1px solid #1f2937; border-radius:16px; }
-    .chip { background:#0f172a; border:1px solid #1f2937; border-radius:999px; padding:.25rem .65rem; font-size:.8rem; }
-    .muted { color:#94a3b8; }
-    .bad { color:#fb7185; }
-    .warn { color:#fbbf24; }
-    .good { color:#34d399; }
-    .btn { background:#4f46e5; }
-    .btn:hover { filter: brightness(1.1); }
-    .inp { background:#020617; border:1px solid #1f2937; border-radius:12px; padding:.6rem .75rem; outline:none; width:100%; }
-    .inp:focus { border-color:#6366f1; }
-    select.inp { padding-right:2rem; }
-    .rowhi { outline:2px solid rgba(99,102,241,.6); }
+    :root{ color-scheme: dark; }
+    body{ background:#050816; }
+    .glass{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:16px; }
+    .btn{ background:#4f46e5; }
+    .btn:hover{ filter:brightness(1.05); }
+    .chip{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:999px; padding:.25rem .6rem; font-size:.75rem; }
+    .tbl th,.tbl td{ padding:.6rem .7rem; border-bottom:1px solid rgba(255,255,255,.06); }
   </style>
 </head>
 
 <body class="text-slate-100">
-  <div class="max-w-7xl mx-auto p-4 md:p-8">
-
-    <div class="flex items-center justify-between mb-6">
+  <div class="max-w-6xl mx-auto p-6">
+    <div class="flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl md:text-3xl font-bold">Staff Score Dashboard</h1>
-        <div class="muted text-sm mt-1">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</div>
+        <h1 class="text-3xl font-bold">Staff Score Dashboard</h1>
+        <div class="text-sm text-slate-400 mt-1">Live view • Monthly + Weekly • Quarterly • Incidents • Private login</div>
       </div>
-      <div id="topRight" class="hidden gap-2 items-center">
-        <span id="who" class="chip"></span>
-        <button id="btnLogout" class="chip">Logout</button>
+      <div class="flex gap-2 items-center">
+        <span id="userChip" class="chip hidden"></span>
+        <button id="logoutBtn" class="chip hidden">Logout</button>
       </div>
     </div>
 
     <!-- LOGIN -->
-    <div id="loginCard" class="card p-5 md:p-6">
-      <div class="grid md:grid-cols-2 gap-4">
+    <section id="loginSection" class="glass mt-6 p-6">
+      <div class="grid md:grid-cols-2 gap-6 items-center">
         <div>
-          <div class="text-lg font-semibold">Login</div>
-          <div class="muted text-sm mt-1">Use your <b>StaffID</b> + password.</div>
+          <h2 class="text-xl font-semibold">Login</h2>
+          <p class="text-sm text-slate-400 mt-2">Use your <b>StaffID</b> + password.</p>
+          <p class="text-xs text-slate-500 mt-2">If login fails, ask admin to run: <b>Weekly Score Tools → Initialize / Sync AUTH</b></p>
+          <p id="loginErr" class="text-sm text-red-400 mt-3 hidden"></p>
         </div>
         <div class="space-y-3">
-          <input id="staffId" class="inp" placeholder="StaffID (e.g., S001)" />
-          <input id="password" type="password" class="inp" placeholder="Password" />
-          <button id="btnLogin" class="w-full btn py-2 rounded-xl font-semibold">Login</button>
-          <div id="loginMsg" class="text-sm muted"></div>
+          <input id="staffId" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="StaffID e.g. S001" />
+          <input id="password" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Password" />
+          <button id="loginBtn" class="w-full btn rounded-xl py-2 font-semibold">Login</button>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- DASHBOARD -->
-    <div id="dash" class="hidden space-y-5">
-
-      <div class="card p-5 md:p-6">
+    <section id="dashSection" class="hidden">
+      <div class="glass mt-6 p-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <div class="text-lg font-semibold">Your Live Scores</div>
-            <div id="subtitle" class="muted text-sm mt-1">—</div>
-            <div id="dashMsg" class="text-sm mt-2"></div>
+            <h2 class="text-xl font-semibold">Your Live Scores</h2>
+            <div id="selMonthTxt" class="text-sm text-slate-400 mt-1"></div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <select id="monthSelect" class="inp"></select>
-            <button id="btnRefresh" class="chip">Refresh</button>
-            <button id="btnExportMy" class="chip">Export My Report</button>
-            <button id="btnExportCSV" class="chip">Export CSV</button>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="monthSelect" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none"></select>
+            <button id="refreshBtn" class="chip">Refresh</button>
+            <button id="exportMyBtn" class="chip">Export My Report</button>
+            <button id="exportAllBtn" class="chip">Export CSV</button>
           </div>
         </div>
-      </div>
 
-      <!-- SCORE CARDS -->
-      <div class="grid md:grid-cols-4 gap-4">
-        <div class="card p-4">
-          <div class="muted text-xs">Monthly Score</div>
-          <div id="mScore" class="text-3xl font-bold mt-2">—</div>
-          <div id="maxHint" class="muted text-xs mt-1">Shown out of 4</div>
-        </div>
-        <div class="card p-4">
-          <div class="muted text-xs">Weekly Score</div>
-          <div id="wScore" class="text-3xl font-bold mt-2">—</div>
-          <div id="wHint" class="muted text-xs mt-1">—</div>
-        </div>
-        <div class="card p-4">
-          <div class="muted text-xs">Final Average</div>
-          <div id="fScore" class="text-3xl font-bold mt-2">—</div>
-          <div class="muted text-xs mt-1">(Monthly + Weekly) / 2</div>
-        </div>
-        <div class="card p-4">
-          <div class="muted text-xs">Quarter Score</div>
-          <div id="qScore" class="text-3xl font-bold mt-2">—</div>
-          <div id="qHint" class="muted text-xs mt-1">—</div>
-        </div>
-      </div>
+        <div id="warnBox" class="mt-3 text-sm text-amber-300 hidden"></div>
 
-      <!-- INCIDENTS + PASSWORD -->
-      <div class="grid md:grid-cols-2 gap-4">
-        <div class="card p-5">
+        <!-- score cards -->
+        <div class="grid md:grid-cols-4 gap-4 mt-6">
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Monthly Score</div>
+            <div id="monthlyScore" class="text-3xl font-bold mt-2">—</div>
+            <div class="text-xs text-slate-500 mt-1">Shown out of 4</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Weekly Score</div>
+            <div id="weeklyScore" class="text-3xl font-bold mt-2">—</div>
+            <div id="weeklyHint" class="text-xs text-slate-500 mt-1">Average of all weeks</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Final Average</div>
+            <div id="finalAvg" class="text-3xl font-bold mt-2">—</div>
+            <div class="text-xs text-slate-500 mt-1">(Monthly + Weekly) / 2</div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-400">Quarter Score</div>
+            <div id="quarterScore" class="text-3xl font-bold mt-2">—</div>
+            <div id="quarterHint" class="text-xs text-slate-500 mt-1">Quarter months auto</div>
+          </div>
+        </div>
+
+        <!-- incidents + change password -->
+        <div class="grid md:grid-cols-2 gap-4 mt-6">
+          <div class="glass p-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Your Incidents</h3>
+              <span class="chip">Status only (notes not counted)</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-1">Staff | Date | Incident | Notes</div>
+            <div class="overflow-auto mt-3">
+              <table class="tbl w-full text-sm">
+                <thead class="text-slate-300">
+                  <tr>
+                    <th class="text-left">Staff</th>
+                    <th class="text-left">Date</th>
+                    <th class="text-left">Incident</th>
+                    <th class="text-left">Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="myIncBody"></tbody>
+              </table>
+            </div>
+            <div id="myIncEmpty" class="text-sm text-emerald-300 mt-3 hidden">No incidents ✅</div>
+          </div>
+
+          <div id="pwCard" class="glass p-4">
+            <h3 class="font-semibold">Change Password</h3>
+            <div class="text-xs text-slate-500 mt-1">Set your own password after first login.</div>
+            <div class="mt-4 space-y-3">
+              <input id="oldPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="Old password" />
+              <input id="newPass" type="password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none" placeholder="New password (min 4 char)" />
+              <button id="pwBtn" class="w-full btn rounded-xl py-2 font-semibold">Update Password</button>
+              <div id="pwMsg" class="text-sm mt-2 hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ALL incidents table (visible to all) -->
+        <div class="glass p-4 mt-6">
           <div class="flex items-center justify-between">
-            <div class="font-semibold">Incidents</div>
-            <span class="chip">Notes + Non-Normal</span>
+            <div>
+              <h3 class="font-semibold">All Incidents (Everyone)</h3>
+              <div class="text-xs text-slate-500 mt-1">Staff | Date | Incident | Notes</div>
+            </div>
+            <span class="chip">Only Status != Normal</span>
           </div>
-          <div id="incidents" class="mt-3 text-sm muted">—</div>
+          <div class="overflow-auto mt-3">
+            <table class="tbl w-full text-sm">
+              <thead class="text-slate-300">
+                <tr>
+                  <th class="text-left">Staff</th>
+                  <th class="text-left">Date</th>
+                  <th class="text-left">Incident</th>
+                  <th class="text-left">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="allIncBody"></tbody>
+            </table>
+          </div>
+          <div id="allIncEmpty" class="text-sm text-emerald-300 mt-3 hidden">No incidents found ✅</div>
         </div>
 
-        <div id="passCard" class="card p-5">
-          <div class="font-semibold">Change Password</div>
-          <div class="muted text-sm mt-1">Set your own password after first login.</div>
-          <div class="mt-3 space-y-2">
-            <input id="oldPass" type="password" class="inp" placeholder="Old password" />
-            <input id="newPass" type="password" class="inp" placeholder="New password (min 4 char)" />
-            <button id="btnChangePass" class="w-full btn py-2 rounded-xl font-semibold">Update Password</button>
-            <div id="passMsg" class="text-sm muted"></div>
+        <!-- leaderboard -->
+        <div class="glass p-4 mt-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold">All Staff Scores</h3>
+              <div class="text-xs text-slate-500 mt-1">Sorted by Final score (highest first)</div>
+            </div>
+            <input id="searchBox" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 outline-none text-sm"
+              placeholder="Search StaffID or Name..." />
           </div>
+
+          <div class="overflow-auto mt-3">
+            <table class="tbl w-full text-sm">
+              <thead class="text-slate-300">
+                <tr>
+                  <th class="text-left">Rank</th>
+                  <th class="text-left">StaffID</th>
+                  <th class="text-left">Name</th>
+                  <th class="text-left">Monthly</th>
+                  <th class="text-left">Weekly</th>
+                  <th class="text-left">Final</th>
+                  <th class="text-left">Incidents</th>
+                </tr>
+              </thead>
+              <tbody id="boardBody"></tbody>
+            </table>
+          </div>
+          <div id="boardFoot" class="text-xs text-slate-500 mt-2"></div>
         </div>
       </div>
+    </section>
 
-      <!-- ALL STAFF TABLE -->
-      <div class="card p-5 md:p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div class="text-lg font-semibold">All Staff Scores</div>
-            <div class="muted text-sm mt-1">Sorted by Final score (highest first)</div>
-          </div>
-          <div class="flex gap-2">
-            <input id="tableSearch" class="inp" placeholder="Search StaffID or Name..." />
-          </div>
-        </div>
-
-        <div class="mt-4 overflow-auto">
-          <table class="w-full text-sm">
-            <thead class="text-slate-300">
-              <tr class="border-b border-slate-800">
-                <th class="text-left py-2 pr-3">Rank</th>
-                <th class="text-left py-2 pr-3">StaffID</th>
-                <th class="text-left py-2 pr-3">Name</th>
-                <th class="text-right py-2 pr-3">Monthly</th>
-                <th class="text-right py-2 pr-3">Weekly</th>
-                <th class="text-right py-2 pr-3">Final</th>
-                <th class="text-right py-2 pr-3">Incidents</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody" class="text-slate-100"></tbody>
-          </table>
-        </div>
-        <div id="tableMsg" class="muted text-xs mt-3"></div>
-      </div>
-    </div>
   </div>
 
 <script>
-  const API_BASE = "https://script.google.com/a/macros/casinomcw.com/s/AKfycby_VMDQ9ef8ckMflhW9uxEYp_zubek3hAiDxn96gBZIUGwZi39vzfKUc-P7ccRcGlRd/exec";
+/** ✅ Set your Apps Script web app URL here */
+const WEBAPP_URL = "https://script.google.com/a/macros/casinomcw.com/s/AKfycbyrjyUKMnFfNlNHZiFBGdUqJ0yt06VB2ldsOlfTRW37oRRKv0hDd1LhA_05TSxPuuM9/exec";
 
-  function jsonp(params) {
-    return new Promise((resolve) => {
-      const cb = "cb_" + Math.random().toString(36).slice(2);
-      params.callback = cb;
+const S = {
+  token: localStorage.getItem("ss_token") || "",
+  staffId: localStorage.getItem("ss_staffId") || "",
+  name: localStorage.getItem("ss_name") || "",
+  month: localStorage.getItem("ss_month") || ""
+};
 
-      const qs = new URLSearchParams(params).toString();
-      const s = document.createElement("script");
-      s.src = API_BASE + "?" + qs;
+const $ = id => document.getElementById(id);
 
-      window[cb] = (data) => { resolve(data); try { delete window[cb]; } catch(e){} s.remove(); };
-      s.onerror = () => { resolve({ ok:false, error:"Network/API error" }); try { delete window[cb]; } catch(e){} s.remove(); };
-      document.body.appendChild(s);
-    });
-  }
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    params.callback = cb;
+    const qs = new URLSearchParams(params).toString();
+    const src = WEBAPP_URL + "?" + qs;
 
-  const el = (id)=>document.getElementById(id);
-
-  const store = {
-    get token(){ return localStorage.getItem("token") || ""; },
-    set token(v){ localStorage.setItem("token", v || ""); },
-    get staffId(){ return localStorage.getItem("staffId") || ""; },
-    set staffId(v){ localStorage.setItem("staffId", v || ""); },
-    get name(){ return localStorage.getItem("name") || ""; },
-    set name(v){ localStorage.setItem("name", v || ""); },
-    get month(){ return localStorage.getItem("monthName") || ""; },
-    set month(v){ localStorage.setItem("monthName", v || ""); },
-    get pwdDone(){ return localStorage.getItem("pwdDone:"+ (this.staffId||"")) === "1"; },
-    set pwdDone(v){ localStorage.setItem("pwdDone:"+ (this.staffId||""), v ? "1":"0"); },
-  };
-
-  function setMsg(id, text, isErr=false){
-    const x = el(id);
-    x.textContent = text || "";
-    x.className = "text-sm " + (isErr ? "bad" : "muted");
-  }
-  function setDashMsg(text, type="muted"){
-    const x = el("dashMsg");
-    x.textContent = text || "";
-    x.className = "text-sm mt-2 " + (type==="bad"?"bad":type==="good"?"good":type==="warn"?"warn":"muted");
-  }
-
-  function showLoggedIn(){
-    el("loginCard").classList.add("hidden");
-    el("dash").classList.remove("hidden");
-    el("topRight").classList.remove("hidden");
-    el("who").textContent = `${store.staffId} • ${store.name || "Staff"}`;
-    el("passCard").style.display = store.pwdDone ? "none" : "block";
-  }
-  function showLoggedOut(){
-    el("loginCard").classList.remove("hidden");
-    el("dash").classList.add("hidden");
-    el("topRight").classList.add("hidden");
-    store.token = ""; store.staffId = ""; store.name = "";
-  }
-
-  function fmt(x){
-    if (x === null || typeof x === "undefined") return "—";
-    const n = Number(x);
-    if (!isFinite(n)) return "—";
-    return n.toFixed(2);
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, (m)=>({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[m]));
-  }
-
-  function buildIncidents(data){
-    const all = [];
-    (data.monthly?.incidents || []).forEach(it => all.push({scope:"Monthly", ...it}));
-    (data.weekly?.incidents || []).forEach(it => all.push({scope:"Weekly", ...it}));
-
-    if (!all.length) {
-      el("incidents").className = "mt-3 text-sm good";
-      el("incidents").textContent = "No incidents ✅";
-      return;
-    }
-
-    const html = all.map(i=>{
-      const st = (i.status||"").toLowerCase();
-      const cls =
-        st.includes("absent") || st.includes("rule") ? "bad" :
-        st.includes("warning") || st.includes("late") ? "warn" : "muted";
-
-      return `<div class="mb-3">
-        <div class="${cls} font-semibold">${escapeHtml(i.scope)}: ${escapeHtml(i.day || i.label || "")} — ${escapeHtml(i.status||"")}</div>
-        ${i.notes ? `<div class="muted text-xs mt-1">${escapeHtml(i.notes)}</div>` : ""}
-      </div>`;
-    }).join("");
-
-    el("incidents").className = "mt-3 text-sm";
-    el("incidents").innerHTML = html;
-  }
-
-  function renderTable(rows){
-    const q = (el("tableSearch").value || "").trim().toLowerCase();
-    const filtered = rows.filter(r=>{
-      if (!q) return true;
-      return String(r.staffId||"").toLowerCase().includes(q) || String(r.staffName||"").toLowerCase().includes(q);
-    });
-
-    el("tableBody").innerHTML = filtered.map((r, idx)=>{
-      const hi = (String(r.staffId||"").trim() === String(store.staffId||"").trim()) ? "rowhi" : "";
-      const inc = Number(r.incidents||0);
-      const incCls = inc>=2 ? "bad" : (inc===1 ? "warn" : "muted");
-      return `
-        <tr class="border-b border-slate-900 ${hi}">
-          <td class="py-2 pr-3">${idx+1}</td>
-          <td class="py-2 pr-3 font-semibold">${escapeHtml(r.staffId||"")}</td>
-          <td class="py-2 pr-3">${escapeHtml(r.staffName||"")}</td>
-          <td class="py-2 pr-3 text-right">${fmt(r.monthly)}</td>
-          <td class="py-2 pr-3 text-right">${fmt(r.weekly)}</td>
-          <td class="py-2 pr-3 text-right font-semibold">${fmt(r.final)}</td>
-          <td class="py-2 pr-3 text-right ${incCls}">${inc}</td>
-        </tr>`;
-    }).join("");
-
-    el("tableMsg").textContent = `Showing ${filtered.length} of ${rows.length} staff`;
-  }
-
-  function downloadText(filename, text){
-    const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function rowsToCSV(rows){
-    const header = ["Rank","StaffID","Name","Monthly","Weekly","Final","Incidents"];
-    const lines = [header.join(",")];
-    rows.forEach((r, i)=>{
-      const line = [
-        i+1,
-        `"${String(r.staffId||"").replace(/"/g,'""')}"`,
-        `"${String(r.staffName||"").replace(/"/g,'""')}"`,
-        (r.monthly ?? ""),
-        (r.weekly ?? ""),
-        (r.final ?? ""),
-        (r.incidents ?? 0)
-      ];
-      lines.push(line.join(","));
-    });
-    return lines.join("\n");
-  }
-
-  async function loadMonths(){
-    setDashMsg("", "muted");
-    const r = await jsonp({ action:"getMonths" });
-    if (!r.ok) { setDashMsg(r.error || "Failed to load month sheets", "bad"); return false; }
-
-    const months = r.months || [];
-    const sel = el("monthSelect");
-
-    if (!months.length) {
-      sel.innerHTML = `<option value="">No month sheets found</option>`;
-      setDashMsg("Month tabs not detected. Please deploy the updated Apps Script code.", "bad");
-      return false;
-    }
-
-    sel.innerHTML = months.map(m=>`<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
-
-    const preferred =
-      store.month && months.some(x=>x.name===store.month)
-        ? store.month
-        : (months[months.length-1]?.name || months[0]?.name || "");
-
-    sel.value = preferred;
-    store.month = preferred;
-
-    setDashMsg("Month sheets loaded ✅", "good");
-    return true;
-  }
-
-  async function loadDashboard(){
-    if (!store.token) return;
-
-    const monthName = el("monthSelect").value;
-    if (!monthName) { setDashMsg("Select a month first.", "warn"); return; }
-
-    store.month = monthName;
-    el("subtitle").textContent = `Selected Month: ${monthName}`;
-    setDashMsg("Loading…", "muted");
-
-    const r = await jsonp({ action:"dashboard", token: store.token, monthName });
-    if (!r.ok) {
-      const msg = (r.error || "").toLowerCase();
-      if (msg.includes("session expired")) {
-        showLoggedOut();
-        setMsg("loginMsg", r.error || "Please login again", true);
-        return;
-      }
-      setDashMsg(r.error || "Failed to load dashboard", "bad");
-      return;
-    }
-
-    // score cards
-    el("mScore").textContent = fmt(r.monthly?.avg);
-    el("wScore").textContent = fmt(r.weekly?.avg);
-    el("fScore").textContent = fmt(r.final?.avg);
-    el("qScore").textContent = fmt(r.quarter?.avg);
-
-    el("maxHint").textContent = `Shown out of ${r.maxScore || 4}`;
-
-    // hints
-    el("wHint").textContent = (r.weekly?.weekEnd) ? `Latest week: ${r.weekly.weekStart || ""} → ${r.weekly.weekEnd}` : "Latest weekly row";
-    const qMonths = (r.quarter?.monthsIncluded || []).join(", ");
-    el("qHint").textContent = qMonths ? `Months: ${qMonths}` : "Quarter months auto";
-
-    // message when monthly row missing
-    if (r.monthFound === false) {
-      setDashMsg("⚠️ Your StaffID is not found in this month tab. Add your row in the month sheet to show monthly score.", "warn");
-    } else {
-      setDashMsg("", "muted");
-    }
-
-    buildIncidents(r);
-
-    // leaderboard table
-    const lb = await jsonp({ action:"leaderboard", token: store.token, monthName });
-    if (lb.ok) {
-      window.__rows = lb.rows || [];
-      renderTable(window.__rows);
-    } else {
-      el("tableBody").innerHTML = "";
-      el("tableMsg").textContent = lb.error || "Leaderboard load failed";
-    }
-
-    // Export handlers use latest data
-    el("btnExportCSV").onclick = ()=>{
-      if (!window.__rows) return;
-      downloadText(`Leaderboard_${monthName}.csv`, rowsToCSV(window.__rows));
+    window[cb] = (data) => {
+      try { delete window[cb]; } catch(e){}
+      script.remove();
+      resolve(data);
     };
 
-    el("btnExportMy").onclick = ()=>{
-      const lines = [];
-      lines.push(`StaffID: ${r.staffId}`);
-      lines.push(`Name: ${r.staffName || ""}`);
-      lines.push(`Month: ${monthName}`);
-      lines.push(`Monthly Avg: ${fmt(r.monthly?.avg)} / ${r.maxScore || 4}`);
-      lines.push(`Weekly Avg: ${fmt(r.weekly?.avg)} / ${r.maxScore || 4}`);
-      lines.push(`Final Avg: ${fmt(r.final?.avg)} / ${r.maxScore || 4}`);
-      lines.push(`Quarter Avg: ${fmt(r.quarter?.avg)} / ${r.maxScore || 4}`);
-      lines.push("");
-      lines.push("Incidents:");
-      const inc = [];
-      (r.monthly?.incidents || []).forEach(x=>inc.push(`Monthly ${x.day}: ${x.status} | ${x.notes||""}`));
-      (r.weekly?.incidents || []).forEach(x=>inc.push(`Weekly: ${x.status} | ${x.notes||""}`));
-      if (!inc.length) inc.push("None");
-      lines.push(...inc);
-      downloadText(`My_Report_${r.staffId}_${monthName}.txt`, lines.join("\n"));
+    const script = document.createElement("script");
+    script.src = src;
+    script.onerror = () => {
+      try { delete window[cb]; } catch(e){}
+      script.remove();
+      reject(new Error("Network / CORS error"));
     };
+    document.body.appendChild(script);
+  });
+}
+
+function showLogin(msg){
+  $("loginSection").classList.remove("hidden");
+  $("dashSection").classList.add("hidden");
+  $("userChip").classList.add("hidden");
+  $("logoutBtn").classList.add("hidden");
+  if (msg){
+    $("loginErr").textContent = msg;
+    $("loginErr").classList.remove("hidden");
+  } else {
+    $("loginErr").classList.add("hidden");
+  }
+}
+
+function showDash(){
+  $("loginSection").classList.add("hidden");
+  $("dashSection").classList.remove("hidden");
+  $("userChip").textContent = `${S.staffId} • ${S.name || ""}`.trim();
+  $("userChip").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+}
+
+function numOrDash(v){
+  return (v===null || v===undefined || v==="" || Number.isNaN(v)) ? "—" : Number(v).toFixed(2);
+}
+
+function setWarn(text){
+  if (!text){
+    $("warnBox").classList.add("hidden");
+    $("warnBox").textContent = "";
+    return;
+  }
+  $("warnBox").textContent = "⚠️ " + text;
+  $("warnBox").classList.remove("hidden");
+}
+
+async function loadMonths(){
+  const res = await jsonp({ action:"getMonths" });
+  if (!res.ok) throw new Error(res.error || "Failed getMonths");
+
+  const months = res.months || [];
+  const sel = $("monthSelect");
+  sel.innerHTML = "";
+
+  if (!months.length){
+    sel.innerHTML = `<option>No month sheets found</option>`;
+    return;
   }
 
-  // Events
-  el("btnLogin").addEventListener("click", async ()=>{
-    setMsg("loginMsg","Logging in...");
-    const staffId = el("staffId").value.trim();
-    const password = el("password").value;
-    if (!staffId || !password) { setMsg("loginMsg","Enter StaffID and password", true); return; }
+  const chosen = S.month && months.includes(S.month) ? S.month : months[0];
+  S.month = chosen;
+  localStorage.setItem("ss_month", chosen);
 
-    // ensure auth exists
-    await jsonp({ action:"initAuth" });
+  for (const m of months){
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    if (m === chosen) opt.selected = true;
+    sel.appendChild(opt);
+  }
 
-    const r = await jsonp({ action:"login", staffId, password });
-    if (!r.ok) { setMsg("loginMsg", r.error || "Login failed", true); return; }
+  $("selMonthTxt").textContent = "Selected Month: " + chosen;
+}
 
-    store.token = r.token;
-    store.staffId = r.staffId;
-    store.name = r.name || "";
+function renderIncidentsTable(tbody, list){
+  tbody.innerHTML = "";
+  for (const x of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="text-slate-200">${escapeHtml(x.staffName || x.staffId)}</td>
+      <td class="text-slate-300">${escapeHtml(x.date || "")}</td>
+      <td class="text-rose-300 font-semibold">${escapeHtml(x.incident || "")}</td>
+      <td class="text-slate-300">${escapeHtml(x.notes || "")}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
 
-    showLoggedIn();
-    const ok = await loadMonths();
-    if (ok) await loadDashboard();
+function escapeHtml(s){
+  return String(s||"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+async function loadDashboard(){
+  $("selMonthTxt").textContent = "Selected Month: " + S.month;
+
+  const res = await jsonp({
+    action:"dashboard",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
   });
 
-  el("btnLogout").addEventListener("click", ()=>{
-    showLoggedOut();
-    setMsg("loginMsg","Logged out.");
+  if (!res.ok) throw new Error(res.error || "dashboard failed");
+
+  $("monthlyScore").textContent = numOrDash(res.monthlyScore);
+  $("weeklyScore").textContent = numOrDash(res.weeklyScore);
+  $("finalAvg").textContent = numOrDash(res.finalAvg);
+  $("quarterScore").textContent = numOrDash(res.quarterScore);
+
+  const qh = (res.quarterMonths && res.quarterMonths.length) ? res.quarterMonths.join(", ") : "—";
+  $("quarterHint").textContent = "Months: " + qh;
+
+  if (res.latestWeek && res.latestWeek.weekStart && res.latestWeek.weekEnd){
+    $("weeklyHint").textContent = `Avg of ${res.weeksCount} weeks • Latest: ${new Date(res.latestWeek.weekStart).toDateString()} → ${new Date(res.latestWeek.weekEnd).toDateString()}`;
+  } else {
+    $("weeklyHint").textContent = `Avg of ${res.weeksCount} weeks`;
+  }
+
+  // if staff is missing in monthly tab
+  if (res.monthlyScore === null){
+    setWarn("Your StaffID is not found in this month tab. Add your row in the month sheet to show monthly score.");
+  } else {
+    setWarn("");
+  }
+
+  // My incidents table
+  const myInc = res.myIncidents || [];
+  if (!myInc.length){
+    $("myIncEmpty").classList.remove("hidden");
+    $("myIncBody").innerHTML = "";
+  } else {
+    $("myIncEmpty").classList.add("hidden");
+    renderIncidentsTable($("myIncBody"), myInc);
+  }
+}
+
+async function loadAllIncidents(){
+  const res = await jsonp({
+    action:"incidents",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
   });
+  if (!res.ok) throw new Error(res.error || "incidents failed");
 
-  el("btnRefresh").addEventListener("click", loadDashboard);
-  el("monthSelect").addEventListener("change", loadDashboard);
+  const all = res.all || [];
+  if (!all.length){
+    $("allIncEmpty").classList.remove("hidden");
+    $("allIncBody").innerHTML = "";
+  } else {
+    $("allIncEmpty").classList.add("hidden");
+    renderIncidentsTable($("allIncBody"), all);
+  }
+}
 
-  el("btnChangePass").addEventListener("click", async ()=>{
-    setMsg("passMsg","Updating...");
-    const oldPassword = el("oldPass").value;
-    const newPassword = el("newPass").value;
-    if (!oldPassword || !newPassword) { setMsg("passMsg","Enter old + new password", true); return; }
-
-    const r = await jsonp({ action:"changePassword", token: store.token, oldPassword, newPassword });
-    if (!r.ok) { setMsg("passMsg", r.error || "Failed", true); return; }
-
-    setMsg("passMsg","Password updated ✅");
-    el("oldPass").value = "";
-    el("newPass").value = "";
-
-    store.pwdDone = true;
-    el("passCard").style.display = "none";
+let leaderboardCache = [];
+async function loadLeaderboard(){
+  const res = await jsonp({
+    action:"leaderboard",
+    token:S.token,
+    staffId:S.staffId,
+    month:S.month
   });
+  if (!res.ok) throw new Error(res.error || "leaderboard failed");
 
-  el("tableSearch").addEventListener("input", ()=>{
-    if (window.__rows) renderTable(window.__rows);
-  });
+  leaderboardCache = res.rows || [];
+  renderLeaderboard(leaderboardCache);
+}
 
-  // Auto restore session
-  (async function boot(){
-    if (store.token && store.staffId){
-      showLoggedIn();
-      const ok = await loadMonths();
-      if (ok) await loadDashboard();
-    }
-  })();
+function renderLeaderboard(list){
+  const tb = $("boardBody");
+  tb.innerHTML = "";
+
+  for (const r of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.rank || ""}</td>
+      <td class="text-slate-200">${escapeHtml(r.staffId)}</td>
+      <td class="text-slate-200">${escapeHtml(r.staffName || "")}</td>
+      <td>${r.monthly==null ? "—" : Number(r.monthly).toFixed(2)}</td>
+      <td>${r.weekly==null ? "—" : Number(r.weekly).toFixed(2)}</td>
+      <td class="font-semibold">${r.final==null ? "—" : Number(r.final).toFixed(2)}</td>
+      <td class="text-slate-300">${r.incidents || 0}</td>
+    `;
+    tb.appendChild(tr);
+  }
+
+  $("boardFoot").textContent = `Showing ${list.length} of ${leaderboardCache.length} staff`;
+}
+
+function applySearch(){
+  const q = $("searchBox").value.trim().toLowerCase();
+  if (!q) return renderLeaderboard(leaderboardCache);
+  const filtered = leaderboardCache.filter(x =>
+    (x.staffId||"").toLowerCase().includes(q) ||
+    (x.staffName||"").toLowerCase().includes(q)
+  );
+  renderLeaderboard(filtered);
+}
+
+function downloadCSV(filename, rows){
+  const csv = rows.map(r => r.map(x => `"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function exportAllCSV(){
+  const rows = [
+    ["Rank","StaffID","Name","Monthly","Weekly","Final","Incidents"],
+    ...leaderboardCache.map(r => [
+      r.rank, r.staffId, r.staffName,
+      r.monthly ?? "", r.weekly ?? "", r.final ?? "", r.incidents ?? 0
+    ])
+  ];
+  downloadCSV(`StaffScores_${S.month}.csv`, rows);
+}
+
+async function exportMyReport(){
+  // build from dashboard + my incidents + quarter
+  const dash = await jsonp({ action:"dashboard", token:S.token, staffId:S.staffId, month:S.month });
+  if (!dash.ok) throw new Error(dash.error || "export dashboard failed");
+
+  const inc = dash.myIncidents || [];
+  const rows = [
+    ["StaffID", S.staffId],
+    ["Name", S.name || ""],
+    ["Month", S.month],
+    ["MonthlyScore(out of 4)", dash.monthlyScore ?? ""],
+    ["WeeklyScore(out of 4)", dash.weeklyScore ?? ""],
+    ["FinalAverage", dash.finalAvg ?? ""],
+    ["QuarterScore", dash.quarterScore ?? ""],
+    ["QuarterMonths", (dash.quarterMonths||[]).join(" | ")],
+    [],
+    ["My Incidents (Status only, notes not counted)"],
+    ["Date","Incident","Notes"],
+    ...inc.map(x => [x.date, x.incident, x.notes])
+  ];
+  downloadCSV(`MyReport_${S.staffId}_${S.month}.csv`, rows);
+}
+
+/* =========================
+   Events
+========================= */
+
+$("loginBtn").addEventListener("click", async ()=>{
+  try{
+    $("loginErr").classList.add("hidden");
+    const staffId = $("staffId").value.trim();
+    const password = $("password").value;
+    const res = await jsonp({ action:"login", staffId, password });
+    if (!res.ok) throw new Error(res.error || "Login failed");
+
+    S.token = res.token;
+    S.staffId = res.staffId;
+    S.name = res.name || "";
+    localStorage.setItem("ss_token", S.token);
+    localStorage.setItem("ss_staffId", S.staffId);
+    localStorage.setItem("ss_name", S.name);
+
+    showDash();
+    await loadMonths();
+    await loadDashboard();
+    await loadAllIncidents();
+    await loadLeaderboard();
+
+  } catch(err){
+    showLogin(err.message || String(err));
+  }
+});
+
+$("logoutBtn").addEventListener("click", ()=>{
+  localStorage.removeItem("ss_token");
+  localStorage.removeItem("ss_staffId");
+  localStorage.removeItem("ss_name");
+  localStorage.removeItem("ss_month");
+  location.reload();
+});
+
+$("monthSelect").addEventListener("change", async ()=>{
+  S.month = $("monthSelect").value;
+  localStorage.setItem("ss_month", S.month);
+  await loadDashboard();
+  await loadAllIncidents();
+  await loadLeaderboard();
+});
+
+$("refreshBtn").addEventListener("click", async ()=>{
+  await loadDashboard();
+  await loadAllIncidents();
+  await loadLeaderboard();
+});
+
+$("pwBtn").addEventListener("click", async ()=>{
+  const oldPassword = $("oldPass").value;
+  const newPassword = $("newPass").value;
+  $("pwMsg").classList.add("hidden");
+
+  try{
+    const res = await jsonp({
+      action:"changePassword",
+      staffId:S.staffId,
+      oldPassword,
+      newPassword
+    });
+    if (!res.ok) throw new Error(res.error || "Password update failed");
+
+    $("pwMsg").textContent = "Password updated ✅";
+    $("pwMsg").className = "text-sm mt-2 text-emerald-300";
+    $("pwMsg").classList.remove("hidden");
+
+    // ✅ After success, hide the password card permanently (as you requested)
+    $("pwCard").classList.add("hidden");
+
+  } catch(err){
+    $("pwMsg").textContent = err.message || String(err);
+    $("pwMsg").className = "text-sm mt-2 text-red-300";
+    $("pwMsg").classList.remove("hidden");
+  }
+});
+
+$("searchBox").addEventListener("input", applySearch);
+$("exportAllBtn").addEventListener("click", exportAllCSV);
+$("exportMyBtn").addEventListener("click", exportMyReport);
+
+/* =========================
+   Auto start if saved session
+========================= */
+(async function boot(){
+  if (!S.token || !S.staffId){
+    showLogin();
+    return;
+  }
+
+  try{
+    showDash();
+    await loadMonths();
+    await loadDashboard();
+    await loadAllIncidents();
+    await loadLeaderboard();
+  } catch (e){
+    showLogin("Session expired. Please login again.");
+  }
+})();
 </script>
 </body>
 </html>
