@@ -52,8 +52,9 @@
         <div>
           <div class="text-lg font-semibold">Login</div>
           <div class="muted text-sm mt-1">Use your <b>StaffID</b> + password.</div>
-          <div class="muted text-xs mt-2">Default password (first time): <span class="font-semibold">mcw@1234</span></div>
-          <div class="muted text-xs mt-1">If login fails, ask admin to run: <b>Weekly Score Tools → Initialize / Sync AUTH</b></div>
+          <div class="muted text-xs mt-2">
+            If login fails, ask admin to run: <b>Weekly Score Tools → Initialize / Sync AUTH</b>
+          </div>
         </div>
         <div class="space-y-3">
           <input id="staffId" class="inp" placeholder="StaffID (e.g., S001)" />
@@ -72,6 +73,7 @@
           <div>
             <div class="text-lg font-semibold">Your Live Scores</div>
             <div id="subtitle" class="muted text-sm mt-1">—</div>
+            <div id="dashMsg" class="text-sm mt-2"></div>
           </div>
           <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             <select id="monthSelect" class="inp"></select>
@@ -128,19 +130,17 @@
         </div>
       </div>
 
-      <!-- FOOTER INFO -->
       <div class="muted text-xs text-center pt-2">
-        Tip: If month dropdown is empty, your month sheets must contain headers <b>MonthStart</b> + <b>StaffID</b>.
+        Note: Month dropdown is generated from month sheets containing headers <b>MonthStart</b> + <b>StaffID</b>.
       </div>
     </div>
-
   </div>
 
 <script>
   // ✅ Your Apps Script Web App URL
   const API_BASE = "https://script.google.com/a/macros/casinomcw.com/s/AKfycbyrjyUKMnFfNlNHZiFBGdUqJ0yt06VB2ldsOlfTRW37oRRKv0hDd1LhA_05TSxPuuM9/exec";
 
-  // JSONP (no CORS)
+  // JSONP
   function jsonp(params) {
     return new Promise((resolve) => {
       const cb = "cb_" + Math.random().toString(36).slice(2);
@@ -183,6 +183,12 @@
     const x = el(id);
     x.textContent = text || "";
     x.className = "text-sm " + (isErr ? "bad" : "muted");
+  }
+
+  function setDashMsg(text, type="muted"){
+    const x = el("dashMsg");
+    x.textContent = text || "";
+    x.className = "text-sm mt-2 " + (type==="bad"?"bad":type==="good"?"good":type==="warn"?"warn":"muted");
   }
 
   function showLoggedIn(){
@@ -251,14 +257,26 @@
   }
 
   async function loadMonths(){
+    setDashMsg("", "muted");
+
     const r = await jsonp({ action:"getMonths" });
     if (!r.ok) {
-      setMsg("loginMsg", r.error || "Failed to load months", true);
+      setDashMsg(r.error || "Failed to load month sheets", "bad");
       return false;
     }
 
     const months = r.months || [];
     const sel = el("monthSelect");
+
+    if (!months.length) {
+      sel.innerHTML = `<option value="">No month sheets found</option>`;
+      setDashMsg(
+        "No month sheets detected. Your month tabs must include headers 'MonthStart' and 'StaffID'.",
+        "warn"
+      );
+      return false;
+    }
+
     sel.innerHTML = months.map(m=>`<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
 
     const preferred =
@@ -266,43 +284,54 @@
         ? store.month
         : (months[months.length-1]?.name || months[0]?.name || "");
 
-    if (preferred) {
-      sel.value = preferred;
-      store.month = preferred;
-    }
+    sel.value = preferred;
+    store.month = preferred;
 
+    setDashMsg("Month sheets loaded ✅", "good");
     return true;
   }
 
   async function loadDashboard(){
     if (!store.token) return;
-    const monthName = el("monthSelect").value;
-    store.month = monthName;
 
+    const monthName = el("monthSelect").value;
+
+    // ✅ FIX: don’t call API if monthName empty
+    if (!monthName) {
+      setDashMsg("Select a month first (month sheets not detected).", "warn");
+      return;
+    }
+
+    store.month = monthName;
     el("subtitle").textContent = `Selected Month: ${monthName}`;
     setLoading(true);
 
     const r = await jsonp({ action:"dashboard", token: store.token, monthName });
 
+    // ✅ FIX: only logout if session expired; not for config issues
     if (!r.ok) {
-      showLoggedOut();
-      setMsg("loginMsg", r.error || "Please login again", true);
+      const msg = (r.error || "Error").toLowerCase();
+      if (msg.includes("session expired") || msg.includes("please login")) {
+        showLoggedOut();
+        setMsg("loginMsg", r.error || "Please login again", true);
+        return;
+      }
+      setDashMsg(r.error || "Failed to load dashboard", "bad");
       return;
     }
 
-    // Display values are already "out of 4" from backend
+    setDashMsg("", "muted");
+
     el("mScore").textContent = fmt(r.monthly?.display);
     el("wScore").textContent = fmt(r.weekly?.display);
     el("fScore").textContent = fmt(r.final?.display);
     el("qScore").textContent = fmt(r.quarter?.display);
 
-    // Weekly hint
     const wk = (r.weekly?.weekEnd)
       ? `Latest Week: ${r.weekly.weekStart || ""} → ${r.weekly.weekEnd}`
       : "Latest weekly row";
     el("wHint").textContent = wk;
 
-    // Quarter hint
     const qMonths = (r.quarter?.monthsIncluded || []).join(", ");
     el("qHint").textContent = qMonths ? `Months: ${qMonths}` : "Quarter months auto";
 
@@ -320,7 +349,7 @@
       return;
     }
 
-    // safe init auth (if already exists, ok)
+    // init auth (safe)
     await jsonp({ action:"initAuth" });
 
     const r = await jsonp({ action:"login", staffId, password });
@@ -336,6 +365,7 @@
     showLoggedIn();
 
     const ok = await loadMonths();
+    // ✅ Only load dashboard if month sheets exist
     if (ok) await loadDashboard();
   });
 
