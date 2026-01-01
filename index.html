@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Staff Score Dashboard</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
-
   <style>
     :root { color-scheme: dark; }
     body { background:#020617; }
@@ -45,7 +43,6 @@
         <div>
           <div class="text-lg font-semibold">Login</div>
           <div class="muted text-sm mt-1">Use your <b>StaffID</b> + password.</div>
-          <div class="muted text-xs mt-2">If login fails, admin must run: <b>Weekly Score Tools → Initialize / Sync AUTH</b></div>
         </div>
         <div class="space-y-3">
           <input id="staffId" class="inp" placeholder="StaffID (e.g., S001)" />
@@ -69,6 +66,8 @@
           <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             <select id="monthSelect" class="inp"></select>
             <button id="btnRefresh" class="chip">Refresh</button>
+            <button id="btnExportMy" class="chip">Export My Report</button>
+            <button id="btnExportCSV" class="chip">Export CSV</button>
           </div>
         </div>
       </div>
@@ -78,12 +77,12 @@
         <div class="card p-4">
           <div class="muted text-xs">Monthly Score</div>
           <div id="mScore" class="text-3xl font-bold mt-2">—</div>
-          <div class="muted text-xs mt-1">Shown out of 4</div>
+          <div id="maxHint" class="muted text-xs mt-1">Shown out of 4</div>
         </div>
         <div class="card p-4">
           <div class="muted text-xs">Weekly Score</div>
           <div id="wScore" class="text-3xl font-bold mt-2">—</div>
-          <div id="wHint" class="muted text-xs mt-1">Shown out of 4</div>
+          <div id="wHint" class="muted text-xs mt-1">—</div>
         </div>
         <div class="card p-4">
           <div class="muted text-xs">Final Average</div>
@@ -93,7 +92,7 @@
         <div class="card p-4">
           <div class="muted text-xs">Quarter Score</div>
           <div id="qScore" class="text-3xl font-bold mt-2">—</div>
-          <div id="qHint" class="muted text-xs mt-1">Auto from quarter months</div>
+          <div id="qHint" class="muted text-xs mt-1">—</div>
         </div>
       </div>
 
@@ -102,7 +101,7 @@
         <div class="card p-5">
           <div class="flex items-center justify-between">
             <div class="font-semibold">Incidents</div>
-            <span class="chip">Non-Normal only</span>
+            <span class="chip">Notes + Non-Normal</span>
           </div>
           <div id="incidents" class="mt-3 text-sm muted">—</div>
         </div>
@@ -149,16 +148,11 @@
         </div>
         <div id="tableMsg" class="muted text-xs mt-3"></div>
       </div>
-
-      <div class="muted text-xs text-center pt-2">
-        Note: Month dropdown is generated from month tabs (Row1 has MonthStart + date, Row2 has Staff headers).
-      </div>
     </div>
   </div>
 
 <script>
-  // ✅ Your Apps Script Web App URL
-  const API_BASE = "https://script.google.com/a/macros/casinomcw.com/s/AKfycbwlo2w6TcXGNtKTXUoKtKIoTkvmS_ZHozQ1DyuKJNR6JUTAQnZvyv9CBKxM6TSdaipd/exec";
+  const API_BASE = "https://script.google.com/a/macros/casinomcw.com/s/AKfycby_VMDQ9ef8ckMflhW9uxEYp_zubek3hAiDxn96gBZIUGwZi39vzfKUc-P7ccRcGlRd/exec";
 
   function jsonp(params) {
     return new Promise((resolve) => {
@@ -169,17 +163,8 @@
       const s = document.createElement("script");
       s.src = API_BASE + "?" + qs;
 
-      window[cb] = (data) => {
-        resolve(data);
-        try { delete window[cb]; } catch(e){}
-        s.remove();
-      };
-      s.onerror = () => {
-        resolve({ ok:false, error:"Network/API error" });
-        try { delete window[cb]; } catch(e){}
-        s.remove();
-      };
-
+      window[cb] = (data) => { resolve(data); try { delete window[cb]; } catch(e){} s.remove(); };
+      s.onerror = () => { resolve({ ok:false, error:"Network/API error" }); try { delete window[cb]; } catch(e){} s.remove(); };
       document.body.appendChild(s);
     });
   }
@@ -215,11 +200,8 @@
     el("dash").classList.remove("hidden");
     el("topRight").classList.remove("hidden");
     el("who").textContent = `${store.staffId} • ${store.name || "Staff"}`;
-
-    // ✅ hide password card if already changed
     el("passCard").style.display = store.pwdDone ? "none" : "block";
   }
-
   function showLoggedOut(){
     el("loginCard").classList.remove("hidden");
     el("dash").classList.add("hidden");
@@ -258,7 +240,7 @@
         st.includes("warning") || st.includes("late") ? "warn" : "muted";
 
       return `<div class="mb-3">
-        <div class="${cls} font-semibold">${escapeHtml(i.scope)}: ${escapeHtml(i.label)} — ${escapeHtml(i.status||"")}</div>
+        <div class="${cls} font-semibold">${escapeHtml(i.scope)}: ${escapeHtml(i.day || i.label || "")} — ${escapeHtml(i.status||"")}</div>
         ${i.notes ? `<div class="muted text-xs mt-1">${escapeHtml(i.notes)}</div>` : ""}
       </div>`;
     }).join("");
@@ -274,8 +256,7 @@
       return String(r.staffId||"").toLowerCase().includes(q) || String(r.staffName||"").toLowerCase().includes(q);
     });
 
-    const body = el("tableBody");
-    body.innerHTML = filtered.map((r, idx)=>{
+    el("tableBody").innerHTML = filtered.map((r, idx)=>{
       const hi = (String(r.staffId||"").trim() === String(store.staffId||"").trim()) ? "rowhi" : "";
       const inc = Number(r.incidents||0);
       const incCls = inc>=2 ? "bad" : (inc===1 ? "warn" : "muted");
@@ -292,6 +273,36 @@
     }).join("");
 
     el("tableMsg").textContent = `Showing ${filtered.length} of ${rows.length} staff`;
+  }
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function rowsToCSV(rows){
+    const header = ["Rank","StaffID","Name","Monthly","Weekly","Final","Incidents"];
+    const lines = [header.join(",")];
+    rows.forEach((r, i)=>{
+      const line = [
+        i+1,
+        `"${String(r.staffId||"").replace(/"/g,'""')}"`,
+        `"${String(r.staffName||"").replace(/"/g,'""')}"`,
+        (r.monthly ?? ""),
+        (r.weekly ?? ""),
+        (r.final ?? ""),
+        (r.incidents ?? 0)
+      ];
+      lines.push(line.join(","));
+    });
+    return lines.join("\n");
   }
 
   async function loadMonths(){
@@ -333,7 +344,6 @@
     setDashMsg("Loading…", "muted");
 
     const r = await jsonp({ action:"dashboard", token: store.token, monthName });
-
     if (!r.ok) {
       const msg = (r.error || "").toLowerCase();
       if (msg.includes("session expired")) {
@@ -345,23 +355,29 @@
       return;
     }
 
-    setDashMsg("", "muted");
-    el("mScore").textContent = fmt(r.monthly?.display);
-    el("wScore").textContent = fmt(r.weekly?.display);
-    el("fScore").textContent = fmt(r.final?.display);
-    el("qScore").textContent = fmt(r.quarter?.display);
+    // score cards
+    el("mScore").textContent = fmt(r.monthly?.avg);
+    el("wScore").textContent = fmt(r.weekly?.avg);
+    el("fScore").textContent = fmt(r.final?.avg);
+    el("qScore").textContent = fmt(r.quarter?.avg);
 
-    const wk = (r.weekly?.weekEnd)
-      ? `Latest Week: ${r.weekly.weekStart || ""} → ${r.weekly.weekEnd}`
-      : "Latest weekly row";
-    el("wHint").textContent = wk;
+    el("maxHint").textContent = `Shown out of ${r.maxScore || 4}`;
 
+    // hints
+    el("wHint").textContent = (r.weekly?.weekEnd) ? `Latest week: ${r.weekly.weekStart || ""} → ${r.weekly.weekEnd}` : "Latest weekly row";
     const qMonths = (r.quarter?.monthsIncluded || []).join(", ");
     el("qHint").textContent = qMonths ? `Months: ${qMonths}` : "Quarter months auto";
 
+    // message when monthly row missing
+    if (r.monthFound === false) {
+      setDashMsg("⚠️ Your StaffID is not found in this month tab. Add your row in the month sheet to show monthly score.", "warn");
+    } else {
+      setDashMsg("", "muted");
+    }
+
     buildIncidents(r);
 
-    // Load table
+    // leaderboard table
     const lb = await jsonp({ action:"leaderboard", token: store.token, monthName });
     if (lb.ok) {
       window.__rows = lb.rows || [];
@@ -370,6 +386,31 @@
       el("tableBody").innerHTML = "";
       el("tableMsg").textContent = lb.error || "Leaderboard load failed";
     }
+
+    // Export handlers use latest data
+    el("btnExportCSV").onclick = ()=>{
+      if (!window.__rows) return;
+      downloadText(`Leaderboard_${monthName}.csv`, rowsToCSV(window.__rows));
+    };
+
+    el("btnExportMy").onclick = ()=>{
+      const lines = [];
+      lines.push(`StaffID: ${r.staffId}`);
+      lines.push(`Name: ${r.staffName || ""}`);
+      lines.push(`Month: ${monthName}`);
+      lines.push(`Monthly Avg: ${fmt(r.monthly?.avg)} / ${r.maxScore || 4}`);
+      lines.push(`Weekly Avg: ${fmt(r.weekly?.avg)} / ${r.maxScore || 4}`);
+      lines.push(`Final Avg: ${fmt(r.final?.avg)} / ${r.maxScore || 4}`);
+      lines.push(`Quarter Avg: ${fmt(r.quarter?.avg)} / ${r.maxScore || 4}`);
+      lines.push("");
+      lines.push("Incidents:");
+      const inc = [];
+      (r.monthly?.incidents || []).forEach(x=>inc.push(`Monthly ${x.day}: ${x.status} | ${x.notes||""}`));
+      (r.weekly?.incidents || []).forEach(x=>inc.push(`Weekly: ${x.status} | ${x.notes||""}`));
+      if (!inc.length) inc.push("None");
+      lines.push(...inc);
+      downloadText(`My_Report_${r.staffId}_${monthName}.txt`, lines.join("\n"));
+    };
   }
 
   // Events
@@ -379,7 +420,7 @@
     const password = el("password").value;
     if (!staffId || !password) { setMsg("loginMsg","Enter StaffID and password", true); return; }
 
-    // safe init auth
+    // ensure auth exists
     await jsonp({ action:"initAuth" });
 
     const r = await jsonp({ action:"login", staffId, password });
@@ -406,7 +447,6 @@
     setMsg("passMsg","Updating...");
     const oldPassword = el("oldPass").value;
     const newPassword = el("newPass").value;
-
     if (!oldPassword || !newPassword) { setMsg("passMsg","Enter old + new password", true); return; }
 
     const r = await jsonp({ action:"changePassword", token: store.token, oldPassword, newPassword });
@@ -416,7 +456,6 @@
     el("oldPass").value = "";
     el("newPass").value = "";
 
-    // ✅ hide password card forever for this staff
     store.pwdDone = true;
     el("passCard").style.display = "none";
   });
